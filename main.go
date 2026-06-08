@@ -7,15 +7,18 @@ import (
 	"log"
 	"net/http"
 	"time"
-
+	
 	"api-gateway/handlers"
 	"api-gateway/middleware"
+	"api-gateway/redis"		//import redis
 )
 
 func main(){		//needs a main func always
 
+	redis.ConnectRedis()		//call this function from redis/client.go
+
 	//create limiter
-	limiter := middleware.NewSlidingWindowLimiter(
+	limiter := redis.NewRedisSlidingWindowLimiter(
 		100,		//100 requests per minute
 		time.Minute,
 	)

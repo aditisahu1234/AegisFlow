@@ -7,6 +7,9 @@ import (
 	"fmt"
 )
 
+type Limiter interface {		//create an interface
+	Allow(ip string) bool
+}
 
 // create limiter struct
 
@@ -66,10 +69,10 @@ func (l *SlidingWindowLimiter) Allow(ip string) bool {
 	return true //req accepted
 }
 
-//middleware
+//middleware signature
 func SlidingWindowMiddleware(
 
-	limiter *SlidingWindowLimiter,		//sliding window limiter object, limiter stuff from main.go gets passed here
+	limiter Limiter,		//sliding window limiter object, limiter stuff from main.go gets passed here
 	next http.Handler,					// returns http.Handler
 ) http.Handler {
 
