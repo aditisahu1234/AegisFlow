@@ -7,15 +7,20 @@ import (
 	"log"
 	"net/http"
 	"time"
-	
+	"os"		//to make port configurable
 	"api-gateway/handlers"
 	"api-gateway/middleware"
 	"api-gateway/redis"		//import redis
+
+	
+
 )
 
 func main(){		//needs a main func always
 
 	redis.ConnectRedis()		//call this function from redis/client.go
+	redis.RedisHealthy.Store(true)
+	redis.StartHealthMonitor()
 
 	//create limiter
 	limiter := redis.NewRedisSlidingWindowLimiter(
@@ -47,11 +52,17 @@ func main(){		//needs a main func always
 		handlers.MetricsHandler,
 	)
 
-	log.Println("Server running on :8080")
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Server running on :" + port)
 
 	log.Fatal(
 		http.ListenAndServe(		//start server
-			":8080",
+			":"+port,
 			nil,
 		),
 	)

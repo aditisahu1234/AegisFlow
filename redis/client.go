@@ -26,6 +26,8 @@ func ConnectRedis() {
 	}
 
 	fmt.Println("Connected to Redis")		//load lua once server starts, keep in memory
+	RedisHealthy.Store(true)
+	
 	script, erro := os.ReadFile(
 		"redis/scripts/sliding_window.lua",
 	)

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sync"		//mutex to avoid race condition
 	"time"
@@ -81,7 +82,19 @@ func SlidingWindowMiddleware(
 		r *http.Request,
 	) {
 
-		ip := r.RemoteAddr		//extract client ip address
+		//extract client ip address
+		ip, _, err := net.SplitHostPort(
+			r.RemoteAddr,
+		)
+						//all requests count towards the same bucket
+		if err != nil {
+			http.Error(
+				w,
+				"invalid client address",
+				http.StatusInternalServerError,
+			)
+			return
+		}
 
 		if !limiter.Allow(ip) {		//ask limiter, true or false??
 			http.Error(
