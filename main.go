@@ -19,7 +19,7 @@ import (
 func main(){		//needs a main func always
 
 	redis.ConnectRedis()		//call this function from redis/client.go
-	
+
 	redis.InitCircuitBreaker()
 
 	redis.RedisHealthy.Store(true)
@@ -53,6 +53,11 @@ func main(){		//needs a main func always
 	http.HandleFunc(	//register metrics handler route
 		"/metrics",
 		handlers.MetricsHandler,
+	)
+
+	http.HandleFunc(
+		"/dashboard",
+		handlers.DashboardHandler,
 	)
 
 	port := os.Getenv("PORT")

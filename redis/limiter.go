@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"log"
 	//RETRY+EXPO BACKOFF+JITTER
+	"api-gateway/middleware"
 	"github.com/cenkalti/backoff/v4"		//failure resistance, CENKALTI
 	
 	"errors"							//gobreaker errors
@@ -31,6 +32,7 @@ func NewRedisSlidingWindowLimiter(
 func (l *RedisSlidingWindowLimiter) Allow(
 	ip string,
 ) bool {
+	middleware.GlobalMetrics.TotalRequests++
 	key := "rate_limit:" + ip	//create redis key
 	now := time.Now().UnixMilli()		//precision---milliseconds
 	
@@ -40,10 +42,6 @@ func (l *RedisSlidingWindowLimiter) Allow(
 	var result int
 	operation := func() error {
 
-		log.Println(
-			"Circuit State:",
-			RedisBreaker.State(),
-		)
 		//every redis oper. needs a context
 		ctx, cancel := context.WithTimeout(		//adding dependency timeout
 			context.Background(),		//every retry gets 100ms fresh timeout instead of sharing one
@@ -53,8 +51,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 
 		_, err := RedisBreaker.Execute(
 			func() (any, error) {
-		
-				log.Println("ABOUT TO HIT REDIS")
+	
 				r, err := Client.Eval(
 					ctx,					//lua cript , sony go breaker
 					SlidingWindowScript,		//failure recorded by go breaker
@@ -65,10 +62,35 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				).Int()
 		
 				if err != nil {
-					log.Println("Breaker saw error:", err)
+
+					middleware.GlobalCircuitMetrics.Failures.Add(1)
+					middleware.GlobalCircuitMetrics.Requests.Add(1)
+				
+					if errors.Is(
+						err,
+						context.DeadlineExceeded,
+					) {
+				
+						middleware.
+							GlobalReliabilityMetrics.
+							TimeoutCount.
+							Add(1)
+				
+						log.Println(
+							"Dependency timeout recorded",
+						)
+					}
+				
+					log.Println(
+						"Breaker saw error:",
+						err,
+					)
+				
 					return nil, err
 				}
 			
+				middleware.GlobalCircuitMetrics.Successes.Add(1)
+				middleware.GlobalCircuitMetrics.Requests.Add(1)
 				result = r
 		
 				return nil, nil
@@ -82,9 +104,16 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				err,
 				gobreaker.ErrOpenState,
 			) {
+			
+				middleware.
+					GlobalReliabilityMetrics.
+					CircuitRejectedCount.
+					Add(1)
+			
 				log.Println(
 					"Circuit OPEN - failing fast",
 				)
+			
 				return err
 			}
 		
@@ -99,6 +128,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 		}
 		return nil
 	}
+
 	//using the cenkalti lib, and adding aws exponential backoff
 	b := backoff.NewExponentialBackOff()
 
@@ -110,21 +140,44 @@ func (l *RedisSlidingWindowLimiter) Allow(
 
 	b.Reset()
 
+	//RETRY LOGIC
 	for attempt := 0; attempt < 3; attempt++ {
 
-		err := operation()
+		if attempt > 0 {
 
+			middleware.
+				GlobalReliabilityMetrics.
+				RetryCount.
+				Add(1)
+		}
+		err := operation()
+		
 		if err == nil {
+
+			if result == 1 {
+		
+				middleware.GlobalMetrics.
+					AllowedRequests++
+		
+			} else {
+		
+				middleware.GlobalMetrics.
+					BlockedRequests++
+			}
+		
 			return result == 1
 		}
+		//CIRCUIT REJECTION
 		if errors.Is(
-    		err,
-    		gobreaker.ErrOpenState,
+			err,
+			gobreaker.ErrOpenState,
 		) {
+		
 			log.Println(
 				"Skipping retries because breaker is OPEN",
 			)
-    		return false
+		
+			return false
 		}
 
 		expoDelay := b.NextBackOff()		//using cenkalti

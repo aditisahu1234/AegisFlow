@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"time"
+	"api-gateway/middleware"
 )
 
 func StartHealthMonitor() {		
@@ -22,6 +23,7 @@ func StartHealthMonitor() {
 
 				if RedisHealthy.Load() {
 
+					middleware.GlobalReliabilityMetrics.RedisFailureCount.Add(1)
 					log.Println(
 						"Redis became unavailable",
 					)
@@ -33,6 +35,7 @@ func StartHealthMonitor() {
 
 				if !RedisHealthy.Load() {
 
+					middleware.GlobalReliabilityMetrics.RedisRecoveryCount.Add(1)
 					log.Println(
 						"Redis recovered",
 					)
