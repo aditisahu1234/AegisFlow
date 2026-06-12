@@ -4,8 +4,12 @@ import (
 	"context"
 	"time"		//sliding wind, time stamps'
 	"math/rand"
+	"log"
 	//RETRY+EXPO BACKOFF+JITTER
 	"github.com/cenkalti/backoff/v4"		//failure resistance, CENKALTI
+	
+	"errors"							//gobreaker errors
+	"github.com/sony/gobreaker/v2"
 )
 type RedisSlidingWindowLimiter struct {
 	limit  int
@@ -36,6 +40,10 @@ func (l *RedisSlidingWindowLimiter) Allow(
 	var result int
 	operation := func() error {
 
+		log.Println(
+			"Circuit State:",
+			RedisBreaker.State(),
+		)
 		//every redis oper. needs a context
 		ctx, cancel := context.WithTimeout(		//adding dependency timeout
 			context.Background(),		//every retry gets 100ms fresh timeout instead of sharing one
@@ -43,23 +51,54 @@ func (l *RedisSlidingWindowLimiter) Allow(
 		)
 		defer cancel()
 
-		r, err := Client.Eval(
-			ctx,
-			SlidingWindowScript,		//lua script
-			[]string{key},
-			now,
-			windowStart,
-			l.limit,
-		).Int()
-	
+		_, err := RedisBreaker.Execute(
+			func() (any, error) {
+		
+				log.Println("ABOUT TO HIT REDIS")
+				r, err := Client.Eval(
+					ctx,					//lua cript , sony go breaker
+					SlidingWindowScript,		//failure recorded by go breaker
+					[]string{key},
+					now,				//circuit ready to trip-->OPEN
+					windowStart,
+					l.limit,
+				).Int()
+		
+				if err != nil {
+					log.Println("Breaker saw error:", err)
+					return nil, err
+				}
+			
+				result = r
+		
+				return nil, nil
+			},
+		)
+		
+		//Handle Open Circuit, After retries fail, Gobreaker may start returning:
 		if err != nil {
+
+			if errors.Is(
+				err,
+				gobreaker.ErrOpenState,
+			) {
+				log.Println(
+					"Circuit OPEN - failing fast",
+				)
+				return err
+			}
+		
+			if errors.Is(
+				err,
+				gobreaker.ErrTooManyRequests,
+			) {
+				return err
+			}
+		
 			return err
 		}
-	
-		result = r
 		return nil
 	}
-
 	//using the cenkalti lib, and adding aws exponential backoff
 	b := backoff.NewExponentialBackOff()
 
@@ -77,6 +116,15 @@ func (l *RedisSlidingWindowLimiter) Allow(
 
 		if err == nil {
 			return result == 1
+		}
+		if errors.Is(
+    		err,
+    		gobreaker.ErrOpenState,
+		) {
+			log.Println(
+				"Skipping retries because breaker is OPEN",
+			)
+    		return false
 		}
 
 		expoDelay := b.NextBackOff()		//using cenkalti

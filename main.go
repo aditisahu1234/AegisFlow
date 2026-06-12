@@ -19,6 +19,9 @@ import (
 func main(){		//needs a main func always
 
 	redis.ConnectRedis()		//call this function from redis/client.go
+	
+	redis.InitCircuitBreaker()
+
 	redis.RedisHealthy.Store(true)
 	redis.StartHealthMonitor()
 
