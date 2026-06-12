@@ -2,26 +2,131 @@
 
 ## Adaptive Distributed API Protection Platform
 
-AegisFlow is a backend infrastructure project focused on protecting APIs from abuse, traffic spikes, and malicious requests.
+AegisFlow is a production-oriented backend infrastructure platform designed to protect APIs from abuse, traffic spikes, dependency failures, and infrastructure instability.
 
-The long-term goal is to build an intelligent API protection layer inspired by modern systems such as Cloudflare and enterprise API gateways, featuring distributed rate limiting, observability, adaptive traffic control, and AI-driven traffic intelligence.
+Inspired by systems such as Cloudflare, modern API gateways, and reliability engineering practices used across large-scale distributed systems, AegisFlow combines distributed rate limiting, resilience engineering, observability, adaptive traffic control, and AI-driven traffic intelligence.
 
-This repository currently contains **Phase 1: API Protection Layer**, implemented in Go.
+The long-term vision is to build an intelligent protection platform capable of automatically detecting threats, adapting traffic policies, surviving infrastructure failures, and making operational decisions based on real-time system conditions.
 
 ---
 
 ## Current Features
 
-### Sliding Window Rate Limiter
+### Distributed Sliding Window Rate Limiter
+
+Built from scratch using Redis Sorted Sets and Atomic Lua Scripts.
+
+Features:
 
 * Per-IP request tracking
-* Sliding Window algorithm
+* Accurate Sliding Window algorithm
+* Millisecond precision
 * Configurable request limits
-* HTTP 429 (Too Many Requests) response when limits are exceeded
+* HTTP 429 (Too Many Requests) enforcement
+* Shared distributed state through Redis
+* Atomic rate-limiting operations
+
+---
+
+### Dependency Timeout Protection
+
+Every Redis operation executes with bounded latency using Go contexts.
+
+Features:
+
+* Fast failure detection
+* Prevents hanging requests
+* Limits dependency latency impact
+* Protects application responsiveness
+
+Implementation:
+
+```go
+context.WithTimeout(...)
+```
+
+---
+
+### Retry + Exponential Backoff + Full Jitter
+
+Inspired by Amazon reliability engineering patterns.
+
+Features:
+
+* Controlled retry behaviour
+* Exponential backoff
+* AWS-style Full Jitter
+* Retry storm mitigation
+* Reduced dependency pressure during outages
+
+Backoff Formula:
+
+```text
+sleep = random(
+    0,
+    min(cap, base * 2^attempt)
+)
+```
+
+---
+
+### Redis Health Monitoring
+
+Continuous background monitoring of Redis availability.
+
+Features:
+
+* Automatic outage detection
+* Automatic recovery detection
+* Shared health state
+* Infrastructure visibility
+
+---
+
+### Production Circuit Breaker
+
+Implemented using:
+
+```text
+github.com/sony/gobreaker/v2
+```
+
+Features:
+
+* Closed → Open → Half-Open → Closed state machine
+* Rolling failure tracking
+* Failure-rate-based tripping
+* Automatic recovery testing
+* Fail-fast protection
+* Dependency isolation
+
+Current Configuration:
+
+* 10-second rolling window
+* 1-second buckets
+* Failure-rate threshold detection
+* Half-open recovery validation
+* Automatic state transitions
+
+---
 
 ### Middleware-Based Protection
 
-All incoming requests pass through a protection layer before reaching application endpoints.
+All incoming requests pass through the protection layer before reaching application endpoints.
+
+Protection Pipeline:
+
+```text
+Request
+    ↓
+Rate Limiter
+    ↓
+Resilience Layer
+    ↓
+Application Endpoint
+```
+
+---
 
 ### Health Endpoint
 
@@ -39,13 +144,15 @@ Example:
 }
 ```
 
+---
+
 ### Metrics Endpoint
 
 ```http
 GET /metrics
 ```
 
-Returns:
+Currently exposes:
 
 * Total Requests
 * Allowed Requests
@@ -61,9 +168,28 @@ Example:
 }
 ```
 
+Future versions will expose:
+
+* Circuit Breaker Metrics
+* Failure Counts
+* Retry Counts
+* Timeout Events
+* Recovery Events
+* Redis Latency Metrics
+
+---
+
 ### Load Testing
 
 Validated using K6 load testing.
+
+Benchmarked for:
+
+* Throughput
+* Request Rate
+* Latency
+* Failure Behaviour
+* Recovery Behaviour
 
 ---
 
@@ -71,11 +197,31 @@ Validated using K6 load testing.
 
 ```text
 Client
-   ↓
+
+↓
+
 Sliding Window Middleware
-   ↓
+
+↓
+
+Resilience Layer
+
+├── Dependency Timeout Protection
+├── Retry + Exponential Backoff
+├── AWS Full Jitter
+├── Redis Health Monitoring
+├── Sony Gobreaker Circuit Breaker
+
+↓
+
+Redis Distributed Rate Limiter
+
+↓
+
 Protected API Endpoint
-   ↓
+
+↓
+
 Response
 ```
 
@@ -105,7 +251,13 @@ GET /metrics
 
 ## Running Locally
 
-Start the server:
+Start Redis:
+
+```bash
+redis-server
+```
+
+Start the application:
 
 ```bash
 go run .
@@ -131,29 +283,92 @@ k6 run load-test.js
 
 ---
 
+## Tech Stack
+
+### Backend
+
+* Go
+* net/http
+
+### Storage
+
+* Redis
+* Redis Sorted Sets
+* Lua Scripts
+
+### Reliability Engineering
+
+* sony/gobreaker/v2
+* cenkalti/backoff/v4
+* context.WithTimeout
+
+### Testing
+
+* K6
+
+### Version Control
+
+* Git
+* GitHub
+
+---
+
+## Current Project Status
+
+### Level 2 — Distributed Rate Limiting
+
+✅ Redis-backed Sliding Window
+
+✅ Atomic Lua Scripts
+
+✅ Shared Distributed State
+
+✅ Multi-instance Architecture Foundation
+
+---
+
+### Level 3 — Production Resilience Platform
+
+✅ Dependency Timeouts
+
+✅ Retry Mechanism
+
+✅ Exponential Backoff
+
+✅ AWS Full Jitter
+
+✅ Redis Health Monitoring
+
+✅ Sony Gobreaker Circuit Breaker
+
+✅ Fail-Fast Protection
+
+🔄 Fallback Local Limiter
+
+🔄 Distributed Failure Tracking
+
+🔄 Prometheus Metrics
+
+🔄 Grafana Dashboards
+
+🔄 Adaptive Load Shedding
+
+---
+
 ## Roadmap
 
-### Level 2
-
-* Redis-backed Distributed Rate Limiting
-* Shared State Across Multiple Nodes
-* Multi-instance Support
-
-### Level 3
-
-* Prometheus Metrics
-* Grafana Dashboards
-* Failure Recovery
-* Dynamic Throttling
-
-### Level 4
+### Level 4 — Adaptive Intelligent Protection Platform
 
 * Traffic Intelligence Engine
 * Threat Classification
+* Anomaly Detection
 * Adaptive Rate Limits
+* Traffic Forecasting
 * AI-driven Decisions
 
-### Level 4.5
+---
+
+### Level 4.5 — Platform Engineering Layer
 
 * Docker
 * Kubernetes (K3s)
@@ -163,9 +378,25 @@ k6 run load-test.js
 
 ---
 
-## Tech Stack
+### Level 5 — Enterprise Reliability
 
-* Go
-* net/http
-* K6
-* Git
+* Chaos Testing
+* Multi-Node Failure Simulation
+* Distributed Failure Tracking
+* Advanced Resilience Policies
+* Fault Injection Testing
+
+---
+
+## Project Goal
+
+AegisFlow aims to evolve from a distributed rate limiter into a complete adaptive API protection platform capable of:
+
+* Detecting abnormal traffic
+* Protecting backend systems
+* Surviving dependency failures
+* Automatically adapting protection policies
+* Providing full observability
+* Leveraging machine learning for operational decision-making
+
+The project is intentionally designed to demonstrate backend engineering, distributed systems, reliability engineering, observability, platform engineering, and applied machine learning in a single production-oriented system.
