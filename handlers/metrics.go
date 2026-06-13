@@ -59,6 +59,15 @@ func MetricsHandler(
 	middleware.GlobalMetrics.RedisRecoveryCount =
 		middleware.GlobalReliabilityMetrics.
 			RedisRecoveryCount.Load()
+	middleware.GlobalMetrics.FallbackActivations =
+		middleware.GlobalReliabilityMetrics.
+			FallbackActivations.Load()
+	middleware.GlobalMetrics.FallbackRequests =
+		middleware.GlobalReliabilityMetrics.
+			FallbackRequests.Load()
+	middleware.GlobalMetrics.FallbackBlocks =
+		middleware.GlobalReliabilityMetrics.
+			FallbackBlocks.Load()
 
 	w.Header().Set(
 		"Content-Type",

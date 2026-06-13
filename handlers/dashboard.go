@@ -1,3 +1,4 @@
+
 package handlers
 
 import (
@@ -18,51 +19,141 @@ func DashboardHandler(
 		"text/html",
 	)
 
+	currentMode := "STANDBY"
+
+	if !redis.RedisHealthy.Load() {
+		currentMode = "ACTIVE"
+	}
+
 	fmt.Fprintf(w, `
 <!DOCTYPE html>
 <html>
+
 <head>
+
 <title>AegisFlow Dashboard</title>
 
 <style>
 
 body {
-	font-family: Arial, sans-serif;
-	background: #FFE6F0;
+	font-family: "Segoe UI", Arial, sans-serif;
+
+	background: linear-gradient(
+		135deg,
+		#ffe4ec,
+		#ffd6ea,
+		#fff5fa
+	);
+
 	padding: 40px;
-	color: #333;
+	color: #222;
 }
 
 h1 {
 	text-align: center;
-	font-size: 38px;
-	font-weight: bold;
-	color: #C2185B;
+	font-size: 42px;
+	font-weight: 800;
+	color: #c2185b;
+	margin-bottom: 10px;
+}
+
+.subtitle {
+	text-align: center;
+	font-size: 18px;
+	color: #7a4b63;
+	margin-bottom: 35px;
 }
 
 .card {
-	background: white;
-	padding: 20px;
-	margin-bottom: 20px;
-	border-radius: 20px;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+	background: rgba(
+		255,
+		255,
+		255,
+		0.96
+	);
+
+	padding: 24px;
+
+	margin-bottom: 22px;
+
+	border-radius: 22px;
+
+	border-left: 8px solid #ec407a;
+
+	box-shadow:
+		0 8px 20px rgba(
+			0,
+			0,
+			0,
+			0.08
+		);
+
+	transition: all 0.2s ease;
+}
+
+.card:hover {
+
+	transform: translateY(-4px);
+
+	box-shadow:
+		0 14px 28px rgba(
+			0,
+			0,
+			0,
+			0.12
+		);
 }
 
 .section-title {
+
 	font-size: 24px;
-	font-weight: bold;
-	color: #D81B60;
-	margin-bottom: 15px;
+	font-weight: 700;
+
+	color: #d81b60;
+
+	margin-bottom: 18px;
+
+	border-bottom: 2px solid #f8bbd0;
+
+	padding-bottom: 8px;
 }
 
 .metric {
-	padding: 6px 0;
+
+	display: flex;
+
+	justify-content: space-between;
+
+	padding: 10px 0;
+
 	font-size: 18px;
+
+	border-bottom: 1px solid #f4f4f4;
+}
+
+.metric:last-child {
+	border-bottom: none;
 }
 
 .value {
-	font-weight: bold;
-	color: #AD1457;
+
+	font-weight: 800;
+
+	color: #3f7d20;
+
+	font-size: 19px;
+}
+
+.footer {
+
+	text-align: center;
+
+	margin-top: 30px;
+
+	color: #666;
+
+	font-size: 14px;
 }
 
 </style>
@@ -71,82 +162,149 @@ h1 {
 
 <body>
 
-<h1>🌸 AegisFlow Reliability Dashboard 🌸</h1>
+<h1>AegisFlow Reliability Dashboard</h1>
+
+<p class="subtitle">
+Production Resilience & Distributed API Protection Platform
+</p>
 
 <div class="card">
-	<div class="section-title">Traffic</div>
 
-	<div class="metric">Total Requests:
+	<div class="section-title">
+		Traffic Metrics
+	</div>
+
+	<div class="metric">
+		<span>Total Requests</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Allowed Requests:
+	<div class="metric">
+		<span>Allowed Requests</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Blocked Requests:
+	<div class="metric">
+		<span>Blocked Requests</span>
 		<span class="value">%d</span>
 	</div>
+
 </div>
 
 <div class="card">
-	<div class="section-title">Circuit Breaker</div>
 
-	<div class="metric">Current State:
+	<div class="section-title">
+		Circuit Breaker
+	</div>
+
+	<div class="metric">
+		<span>Current State</span>
 		<span class="value">%s</span>
 	</div>
 
-	<div class="metric">Open Count:
+	<div class="metric">
+		<span>Open Count</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Half Open Count:
+	<div class="metric">
+		<span>Half Open Count</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Close Count:
+	<div class="metric">
+		<span>Close Count</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Requests:
+	<div class="metric">
+		<span>Total Requests</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Failures:
+	<div class="metric">
+		<span>Failures</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Successes:
+	<div class="metric">
+		<span>Successes</span>
 		<span class="value">%d</span>
 	</div>
+
 </div>
 
 <div class="card">
-	<div class="section-title">Reliability</div>
 
-	<div class="metric">Timeouts:
+	<div class="section-title">
+		Reliability Metrics
+	</div>
+
+	<div class="metric">
+		<span>Timeout Events</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Retries:
+	<div class="metric">
+		<span>Retries</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Circuit Rejections:
+	<div class="metric">
+		<span>Circuit Rejections</span>
 		<span class="value">%d</span>
 	</div>
+
 </div>
 
 <div class="card">
-	<div class="section-title">Redis Health</div>
 
-	<div class="metric">Failures:
+	<div class="section-title">
+		Redis Health
+	</div>
+
+	<div class="metric">
+		<span>Redis Failures</span>
 		<span class="value">%d</span>
 	</div>
 
-	<div class="metric">Recoveries:
+	<div class="metric">
+		<span>Redis Recoveries</span>
 		<span class="value">%d</span>
 	</div>
+
+</div>
+
+<div class="card">
+
+	<div class="section-title">
+		Fallback Limiter
+	</div>
+
+	<div class="metric">
+		<span>Fallback Activations</span>
+		<span class="value">%d</span>
+	</div>
+
+	<div class="metric">
+		<span>Current Mode</span>
+		<span class="value">%s</span>
+	</div>
+
+	<div class="metric">
+		<span>Fallback Requests</span>
+		<span class="value">%d</span>
+	</div>
+
+	<div class="metric">
+		<span>Fallback Blocks</span>
+		<span class="value">%d</span>
+	</div>
+
+</div>
+
+<div class="footer">
+	AegisFlow • Distributed Rate Limiting • Circuit Breaking • Reliability Engineering
 </div>
 
 </body>
@@ -172,5 +330,12 @@ h1 {
 
 		middleware.GlobalReliabilityMetrics.RedisFailureCount.Load(),
 		middleware.GlobalReliabilityMetrics.RedisRecoveryCount.Load(),
+
+		middleware.GlobalReliabilityMetrics.FallbackActivations.Load(),
+		currentMode,
+		middleware.GlobalReliabilityMetrics.FallbackRequests.Load(),
+
+		middleware.GlobalReliabilityMetrics.FallbackBlocks.Load(),
 	)
 }
+

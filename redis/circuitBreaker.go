@@ -67,6 +67,8 @@ func InitCircuitBreaker() {
 			case gobreaker.StateOpen:
 				middleware.GlobalCircuitMetrics.
 					OpenCount.Add(1)
+				middleware.GlobalReliabilityMetrics.
+					FallbackActivations.Add(1)
 		
 			case gobreaker.StateHalfOpen:
 				middleware.GlobalCircuitMetrics.

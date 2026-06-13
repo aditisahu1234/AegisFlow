@@ -23,4 +23,9 @@ type Metrics struct {
 
 	RedisFailureCount uint64 `json:"redis_failure_count"`
 	RedisRecoveryCount uint64 `json:"redis_recovery_count"`
+
+	FallbackActivations uint64 `json:"fallback_activations"`
+	FallbackRequests uint64 `json:"fallback_requests"`
+
+	FallbackBlocks uint64 `json:"fallback_blocks"`
 }

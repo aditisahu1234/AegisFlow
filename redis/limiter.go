@@ -32,6 +32,9 @@ func NewRedisSlidingWindowLimiter(
 func (l *RedisSlidingWindowLimiter) Allow(
 	ip string,
 ) bool {
+
+	//if redis works then:
+
 	middleware.GlobalMetrics.TotalRequests++
 	key := "rate_limit:" + ip	//create redis key
 	now := time.Now().UnixMilli()		//precision---milliseconds
@@ -151,7 +154,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				Add(1)
 		}
 		err := operation()
-		
+
 		if err == nil {
 
 			if result == 1 {
@@ -172,12 +175,32 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			err,
 			gobreaker.ErrOpenState,
 		) {
-		
+			//acivate fallbakck limiter
 			log.Println(
-				"Skipping retries because breaker is OPEN",
+				"FALLBACK LIMITER ACTIVE",
 			)
 		
-			return false
+			middleware.
+				GlobalReliabilityMetrics.
+				CircuitRejectedCount.
+				Add(1)
+		
+			//store result
+			allowed := FallbackLimiter.Allow(ip)
+			if !allowed {
+
+				middleware.
+					GlobalReliabilityMetrics.
+					FallbackBlocks.
+					Add(1)
+			}
+
+			middleware.
+				GlobalReliabilityMetrics.
+				FallbackRequests.
+				Add(1)
+
+			return allowed
 		}
 
 		expoDelay := b.NextBackOff()		//using cenkalti
