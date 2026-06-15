@@ -138,7 +138,7 @@ func SlidingWindowMiddleware(
 			),
 		
 			attribute.String(
-				"http.path",
+				"http.route",
 				r.URL.Path,
 			),
 		)
@@ -181,12 +181,20 @@ func SlidingWindowMiddleware(
 
 		span.SetAttributes(
 			attribute.String(
-				"client.ip",
+				"client.address",
 				ip,
 			),
 		)
 						//all requests count towards the same bucket
 		if err != nil {
+			//http status code attribute
+			span.SetAttributes(
+				attribute.Int(
+					"http.status_code",
+					500,
+				),
+			)
+
 			http.Error(
 				w,
 				"invalid client address",
@@ -219,6 +227,13 @@ func SlidingWindowMiddleware(
 				"rate limit exceeded",
 			)
 
+			span.SetAttributes(
+				attribute.Int(
+					"http.status_code",
+					429,
+				),
+			)
+
 			http.Error(
 				w,
 				"rate limit exceeded",		//block request
@@ -230,6 +245,13 @@ func SlidingWindowMiddleware(
 			"rate_limit_check_passed",
 		)
 
+		span.SetAttributes(
+			attribute.Int(
+				"http.status_code",
+				200,
+			),
+		)
+		
 		next.ServeHTTP(w, r)	//limiter blcoked req, call actual endpoint
 		
 	})

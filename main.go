@@ -4,19 +4,19 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"time"
-	"os"		//to make port configurable
 	"api-gateway/handlers"
 	"api-gateway/middleware"
-	"api-gateway/redis"		//import redis
+	"api-gateway/redis" //import redis
 	"api-gateway/telemetry"
-	
+	"log"
+	"net/http"
+	"os" //to make port configurable
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func main(){		//needs a main func always
+func main() { //needs a main func always
 
 	telemetry.InitTelemetry()
 	if err := telemetry.InitMetrics(); err != nil {
@@ -26,7 +26,7 @@ func main(){		//needs a main func always
 		log.Fatal(err)
 	}
 
-	redis.ConnectRedis()		//call this function from redis/client.go
+	redis.ConnectRedis() //call this function from redis/client.go
 
 	redis.InitCircuitBreaker()
 
@@ -37,7 +37,7 @@ func main(){		//needs a main func always
 
 	//create limiter
 	limiter := redis.NewRedisSlidingWindowLimiter(
-		100,		//100 requests per minute
+		100, //100 requests per minute
 		time.Minute,
 	)
 
@@ -55,14 +55,19 @@ func main(){		//needs a main func always
 		),
 	)
 
-	http.HandleFunc(	//register health handler route
+	http.HandleFunc( //register health handler route
 		"/health",
 		handlers.HealthHandler,
 	)
-
-	http.HandleFunc(	//register metrics handler route
+	/*
+		http.HandleFunc( //register metrics handler route
+			"/metrics-json",
+			handlers.MetricsHandler,
+		)
+	*/
+	http.Handle( //adding new route
 		"/metrics",
-		handlers.MetricsHandler,
+		promhttp.Handler(),
 	)
 
 	http.HandleFunc(
@@ -79,13 +84,9 @@ func main(){		//needs a main func always
 	log.Println("Server running on :" + port)
 
 	log.Fatal(
-		http.ListenAndServe(		//start server
+		http.ListenAndServe( //start server
 			":"+port,
 			nil,
 		),
 	)
 }
-
-
-
-

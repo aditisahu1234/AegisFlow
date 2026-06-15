@@ -12,6 +12,10 @@ import (
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+
 )
 
 var Tracer trace.Tracer
@@ -25,6 +29,23 @@ func InitTracer() error {
 			stdouttrace.WithPrettyPrint(),
 		)
 
+	res := resource.NewWithAttributes(	//deployement environment
+		"",
+		attribute.String(
+			"service.name",
+			"aegisflow",
+		),
+	
+		attribute.String(
+			"deployment.environment",
+			"development",
+		),
+		attribute.String(
+			"service.version",
+			"1.0.0",
+		),
+	)
+
 	if err != nil {
 		return err
 	}
@@ -36,12 +57,16 @@ func InitTracer() error {
         ),
 
         sdktrace.WithResource(
-            Resource,
+            res,
         ),
     )
 
 	otel.SetTracerProvider(
 		TracerProvider,
+	)
+
+	otel.SetTextMapPropagator(	//trace context propagation
+		propagation.TraceContext{},
 	)
 
 	Tracer =
