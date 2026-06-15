@@ -2,10 +2,12 @@
 package redis
 
 import (
+	"context"
 	"log"
 	"time"
 	"api-gateway/middleware"
 	"github.com/sony/gobreaker/v2"
+	"api-gateway/telemetry"
 )
 
 var RedisBreaker *gobreaker.CircuitBreaker[any]
@@ -65,16 +67,24 @@ func InitCircuitBreaker() {
 			switch to {
 
 			case gobreaker.StateOpen:
+				telemetry.CircuitState.Store(0)
+
 				middleware.GlobalCircuitMetrics.
 					OpenCount.Add(1)
 				middleware.GlobalReliabilityMetrics.
 					FallbackActivations.Add(1)
+				telemetry.FallbackCounter.Add(
+					context.Background(),
+					1,
+				)
 		
 			case gobreaker.StateHalfOpen:
+				telemetry.CircuitState.Store(1)
 				middleware.GlobalCircuitMetrics.
 					HalfOpenCount.Add(1)
 		
 			case gobreaker.StateClosed:
+				telemetry.CircuitState.Store(2)
 				middleware.GlobalCircuitMetrics.
 					CloseCount.Add(1)
 			}

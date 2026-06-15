@@ -12,3 +12,7 @@ var FallbackLimiter =
 		50,		//fallback limit only 50 requests/minute
 		time.Minute,
 	)
+//add helper
+func GetFallbackActiveIPs() int {
+	return FallbackLimiter.ActiveIPCount()
+}

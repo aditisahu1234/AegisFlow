@@ -11,18 +11,28 @@ import (
 	"api-gateway/handlers"
 	"api-gateway/middleware"
 	"api-gateway/redis"		//import redis
-
+	"api-gateway/telemetry"
 	
 
 )
 
 func main(){		//needs a main func always
 
+	telemetry.InitTelemetry()
+	if err := telemetry.InitMetrics(); err != nil {
+		log.Fatal(err)
+	}
+	if err := telemetry.InitTracer(); err != nil {
+		log.Fatal(err)
+	}
+
 	redis.ConnectRedis()		//call this function from redis/client.go
 
 	redis.InitCircuitBreaker()
 
 	redis.RedisHealthy.Store(true)
+	telemetry.RedisHealth.Store(1)
+
 	redis.StartHealthMonitor()
 
 	//create limiter

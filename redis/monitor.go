@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 	"api-gateway/middleware"
+	"api-gateway/telemetry"
 )
 
 func StartHealthMonitor() {		
@@ -30,6 +31,7 @@ func StartHealthMonitor() {
 				}
 
 				RedisHealthy.Store(false)
+				telemetry.RedisHealth.Store(0)
 
 			} else {
 
@@ -42,6 +44,7 @@ func StartHealthMonitor() {
 				}
 
 				RedisHealthy.Store(true)
+				telemetry.RedisHealth.Store(1)
 			}
 
 			time.Sleep(
