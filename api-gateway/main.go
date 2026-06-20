@@ -4,19 +4,21 @@
 package main
 
 import (
+	"api-gateway/config"
 	"api-gateway/handlers"
 	"api-gateway/middleware"
 	"api-gateway/redis" //import redis
 	"api-gateway/telemetry"
 	"log"
 	"net/http"
-	"os" //to make port configurable
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() { //needs a main func always
+
+	cfg := config.Load()
 
 	telemetry.InitTelemetry()
 	if err := telemetry.InitMetrics(); err != nil {
@@ -26,7 +28,8 @@ func main() { //needs a main func always
 		log.Fatal(err)
 	}
 
-	redis.ConnectRedis() //call this function from redis/client.go
+	//call this function from redis/client.go
+	redis.ConnectRedis(cfg)
 
 	redis.InitCircuitBreaker()
 
@@ -75,17 +78,11 @@ func main() { //needs a main func always
 		handlers.DashboardHandler,
 	)
 
-	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Println("Server running on :" + port)
+	log.Println("Server running on :" + cfg.Port)
 
 	log.Fatal(
 		http.ListenAndServe( //start server
-			":"+port,
+			":"+cfg.Port,
 			nil,
 		),
 	)

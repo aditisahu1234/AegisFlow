@@ -1,6 +1,7 @@
 //we create all instruments here
 
 package telemetry
+
 import (
 	"context"
 	"runtime"
@@ -16,20 +17,20 @@ var TimeoutCounter metric.Int64Counter
 
 var FallbackCounter metric.Int64Counter
 
-//for histogram
-var RequestDurationHistogram metric.Float64Histogram	
+// for histogram
+var RequestDurationHistogram metric.Float64Histogram
 
 var RedisLatencyHistogram metric.Float64Histogram
 
 var RetryDelayHistogram metric.Float64Histogram
 
-//up down counters
+// up down counters
 var ActiveRequestsCounter metric.Int64UpDownCounter
 
-//observable counter to get goroutine count
+// observable counter to get goroutine count
 var GoroutineCount metric.Int64ObservableUpDownCounter
 
-//memory usage observab counter and gauge
+// memory usage observab counter and gauge
 var MemoryAlloc metric.Int64ObservableGauge
 
 var GCCycles metric.Int64ObservableCounter
@@ -42,7 +43,7 @@ var FallbackModeGauge metric.Int64ObservableGauge
 
 var ActiveIPsGauge metric.Int64ObservableGauge
 
-//adding metrics from docs
+// adding metrics from docs
 func InitMetrics() error {
 
 	var err error
@@ -59,11 +60,16 @@ func InitMetrics() error {
 				"{request}",
 			),
 		)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
+	RequestCounter.Add(
+		context.Background(),
+		0,
+	)
+
 	RequestDurationHistogram, err =
 		Meter.Float64Histogram(
 			"aegisflow_request_duration_seconds",
@@ -82,15 +88,15 @@ func InitMetrics() error {
 	}
 
 	RetryDelayHistogram, err =
-	Meter.Float64Histogram(
-		"aegisflow_retry_delay_seconds",
+		Meter.Float64Histogram(
+			"aegisflow_retry_delay_seconds",
 
-		metric.WithDescription(
-			"Distribution of retry delays",
-		),
+			metric.WithDescription(
+				"Distribution of retry delays",
+			),
 
-		metric.WithUnit("s"),
-	)
+			metric.WithUnit("s"),
+		)
 
 	if err != nil {
 		return err
@@ -106,7 +112,7 @@ func InitMetrics() error {
 			metric.WithUnit(
 				"s",
 			),
-	)
+		)
 
 	if err != nil {
 		return err
@@ -129,6 +135,11 @@ func InitMetrics() error {
 		return err
 	}
 
+	RetryCounter.Add(
+		context.Background(),
+		0,
+	)
+
 	TimeoutCounter, err =
 		Meter.Int64Counter(
 			"aegisflow_timeouts_total",
@@ -145,6 +156,11 @@ func InitMetrics() error {
 	if err != nil {
 		return err
 	}
+
+	TimeoutCounter.Add(
+		context.Background(),
+		0,
+	)
 
 	FallbackCounter, err =
 		Meter.Int64Counter(
@@ -163,100 +179,104 @@ func InitMetrics() error {
 		return err
 
 	}
+	FallbackCounter.Add(
+		context.Background(),
+		0,
+	)
 	//up down counter
 	ActiveRequestsCounter, err =
-	Meter.Int64UpDownCounter(
-		"aegisflow_active_requests",
+		Meter.Int64UpDownCounter(
+			"aegisflow_active_requests",
 
-		metric.WithDescription(
-			"Current number of active requests",
-		),
+			metric.WithDescription(
+				"Current number of active requests",
+			),
 
-		metric.WithUnit(
-			"{request}",
-		),
-	)
+			metric.WithUnit(
+				"{request}",
+			),
+		)
 
 	if err != nil {
 		return err
 	}
 
 	GoroutineCount, err =
-	Meter.Int64ObservableUpDownCounter(
-		"aegisflow_goroutines",
+		Meter.Int64ObservableUpDownCounter(
+			"aegisflow_goroutines",
 
-		metric.WithDescription(
-			"Current number of goroutines",
-		),
+			metric.WithDescription(
+				"Current number of goroutines",
+			),
 
-		metric.WithUnit(
-			"{goroutine}",
-		),
-	)
+			metric.WithUnit(
+				"{goroutine}",
+			),
+		)
 
 	if err != nil {
 		return err
 	}
 
 	_, err =
-	Meter.RegisterCallback(		//SDK asks for current value, callback updates
+		Meter.RegisterCallback( //SDK asks for current value, callback updates
 
-		func(
-			ctx context.Context,
-			o metric.Observer,
-		) error {
+			func(
+				ctx context.Context,
+				o metric.Observer,
+			) error {
 
-			o.ObserveInt64(
-				GoroutineCount,
+				o.ObserveInt64(
+					GoroutineCount,
 
-				int64(
-					runtime.NumGoroutine(),
-				),
-			)
+					int64(
+						runtime.NumGoroutine(),
+					),
+				)
 
-			return nil
-		},
+				return nil
+			},
 
-		GoroutineCount,
-	)
+			GoroutineCount,
+		)
 
 	if err != nil {
 		return err
 	}
 	//memory gauge
 	MemoryAlloc, err =
-	Meter.Int64ObservableGauge(
-		"aegisflow_memory_alloc_bytes",
+		Meter.Int64ObservableGauge(
+			"aegisflow_memory_alloc_bytes",
 
-		metric.WithDescription(
-			"Currently allocated memory",
-		),
+			metric.WithDescription(
+				"Currently allocated memory",
+			),
 
-		metric.WithUnit(
-			"bytes",
-		),
-	)
+			metric.WithUnit(
+				"bytes",
+			),
+		)
 
 	if err != nil {
 		return err
 	}
 	//gc counter
 	GCCycles, err =
-	Meter.Int64ObservableCounter(
-		"aegisflow_gc_cycles_total",
+		Meter.Int64ObservableCounter(
+			"aegisflow_gc_cycles_total",
 
-		metric.WithDescription(
-			"Total GC cycles",
-		),
-	)
+			metric.WithDescription(
+				"Total GC cycles",
+			),
+		)
 
 	if err != nil {
 		return err
 	}
-// ---------------------------------------------------
-// SYSTEM STATE GAUGES
-// ----------------------------------------------------
-	RedisHealthGauge, err =		//redis health gauge
+	// ---------------------------------------------------
+	// SYSTEM STATE GAUGES
+	// ----------------------------------------------------
+	RedisHealthGauge, err = //redis health gauge
 		Meter.Int64ObservableGauge(
 			"redis.health",
 			metric.WithDescription(
@@ -266,7 +286,7 @@ func InitMetrics() error {
 	if err != nil {
 		return err
 	}
-	CircuitStateGauge, err =	//circuit state gauge
+	CircuitStateGauge, err = //circuit state gauge
 		Meter.Int64ObservableGauge(
 			"circuit.state",
 			metric.WithDescription(
@@ -276,8 +296,8 @@ func InitMetrics() error {
 	if err != nil {
 		return err
 	}
-		
-	FallbackModeGauge, err =	//fallback mode gauge
+
+	FallbackModeGauge, err = //fallback mode gauge
 		Meter.Int64ObservableGauge(
 			"fallback.mode",
 			metric.WithDescription(
@@ -287,8 +307,8 @@ func InitMetrics() error {
 	if err != nil {
 		return err
 	}
-	
-	ActiveIPsGauge, err =		//active ips gauge
+
+	ActiveIPsGauge, err = //active ips gauge
 		Meter.Int64ObservableGauge(
 			"fallback.active_ips",
 			metric.WithDescription(
@@ -298,7 +318,6 @@ func InitMetrics() error {
 	if err != nil {
 		return err
 	}
-		
 
 	//register callback
 
@@ -312,22 +331,22 @@ func InitMetrics() error {
 				RedisHealthGauge,
 				RedisHealth.Load(),
 			)
-	
+
 			o.ObserveInt64(
 				CircuitStateGauge,
 				CircuitState.Load(),
 			)
-	
+
 			o.ObserveInt64(
 				FallbackModeGauge,
 				FallbackMode.Load(),
 			)
-	
+
 			o.ObserveInt64(
 				ActiveIPsGauge,
 				ActiveIPs.Load(),
 			)
-	
+
 			return nil
 		},
 		RedisHealthGauge,
@@ -335,41 +354,41 @@ func InitMetrics() error {
 		FallbackModeGauge,
 		ActiveIPsGauge,
 	)
-		
+
 	if err != nil {
 		return err
 	}
 
 	_, err =
-	Meter.RegisterCallback(
+		Meter.RegisterCallback(
 
-		func(
-			ctx context.Context,
-			o metric.Observer,
-		) error {
+			func(
+				ctx context.Context,
+				o metric.Observer,
+			) error {
 
-			var mem runtime.MemStats
+				var mem runtime.MemStats
 
-			runtime.ReadMemStats(
-				&mem,
-			)
+				runtime.ReadMemStats(
+					&mem,
+				)
 
-			o.ObserveInt64(
-				MemoryAlloc,
-				int64(mem.Alloc),
-			)
+				o.ObserveInt64(
+					MemoryAlloc,
+					int64(mem.Alloc),
+				)
 
-			o.ObserveInt64(
-				GCCycles,
-				int64(mem.NumGC),
-			)
+				o.ObserveInt64(
+					GCCycles,
+					int64(mem.NumGC),
+				)
 
-			return nil
-		},
+				return nil
+			},
 
-		MemoryAlloc,
-		GCCycles,
-	)
+			MemoryAlloc,
+			GCCycles,
+		)
 
 	if err != nil {
 		return err

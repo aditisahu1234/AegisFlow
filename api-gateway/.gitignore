@@ -1,0 +1,21 @@
+# Go
+api-gateway
+*.exe
+*.out
+
+# Redis
+dump.rdb
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
