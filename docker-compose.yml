@@ -1,0 +1,89 @@
+
+#service is every application that runs
+services:
+  redis:
+    image: redis:7-alpine     #download official redis image
+    container_name: aegisflow-redis
+
+    expose:
+      - "6379"    # Internal Redis port, accessible only to containers on the backend network.
+
+    restart: unless-stopped     #if dock crashes, redis automatically starts
+
+    pids_limit: 100
+
+    # TODO: Replace with Kubernetes resource requests and limits in Volume 7.
+    mem_limit: 256m
+
+    cpus: 0.5
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - backend
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    init: true
+
+  api-gateway:
+    build:
+      context: ./api-gateway      #Go into the api-gateway folder and build the image from the Dockerfile there.
+      dockerfile: Dockerfile
+
+    container_name: aegisflow-api
+
+    ports:
+      - "8080:8080"
+
+    env_file:
+      - .env
+    environment:    #no hardcoding, 
+      REDIS_HOST: redis
+  
+
+    depends_on:   #docker starts the redis container first
+      redis:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    read_only: true
+
+    cap_drop:   #removing priviledges to ensure more securtiy
+      - ALL
+    
+    security_opt:
+      - no-new-privileges:true
+
+    pids_limit: 100
+
+    mem_limit: 256m
+
+    cpus: 1.0
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - backend
+
+    init: true
+
+#dedicated backend network, only containers in this network can communicate
+networks:
+  backend:
+    driver: bridge
+

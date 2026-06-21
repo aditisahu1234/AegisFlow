@@ -9,8 +9,13 @@ import (
 	"api-gateway/middleware"
 	"api-gateway/redis" //import redis
 	"api-gateway/telemetry"
+
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -78,12 +83,48 @@ func main() { //needs a main func always
 		handlers.DashboardHandler,
 	)
 
-	log.Println("Server running on :" + cfg.Port)
+	// Create HTTP server
+	server := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: nil,
+	}
 
-	log.Fatal(
-		http.ListenAndServe( //start server
-			":"+cfg.Port,
-			nil,
-		),
+	// Start server in a separate goroutine
+	go func() {
+		log.Println("Server running on :" + cfg.Port)
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
 	)
+
+	defer stop()
+
+	<-ctx.Done()
+
+	log.Println("Shutdown signal received...")
+
+	// Allow up to 10 seconds for graceful shutdown
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
+	defer cancel()
+
+	// Gracefully stop HTTP server
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+
+	// Close Redis connection
+	redis.Client.Close()
+
+	log.Println("Server stopped gracefully.")
 }
