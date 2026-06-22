@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: redis
+  namespace: aegisflow
+
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: aegisflow-platform
+
+spec:
+  replicas: 1     #since redis ain't stateless, we are din distributed rate limiting
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/part-of: aegisflow-platform
+
+    spec:
+      containers:
+
+      - name: redis
+
+        image: redis:7-alpine
+
+        ports:
+        - containerPort: 6379
+
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+
+          limits:   #stops redis from consuming the whole node
+            cpu: "500m"
+            memory: "256Mi"
+
+        livenessProbe:    #am i dead or alive
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+        readinessProbe:   #tells k8, dont let anyone use redis until it's actually accepting connections
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 5

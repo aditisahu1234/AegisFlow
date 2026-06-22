@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: aegisflow-gateway
+
+spec:
+  replicas: 2   #initially starting with 2 Gateway pods, in case 1 dies
+
+  selector:     #gateway finds pods on it's own by using labels
+    matchLabels:  
+      app.kubernetes.io/name: aegisflow
+      app.kubernetes.io/component: gateway
+
+  template:     #blueprint of every pod, kubernetes copies this when recreates another pod
+    metadata:
+      labels:
+        app.kubernetes.io/name: aegisflow
+        app.kubernetes.io/component: gateway
+        app.kubernetes.io/part-of: aegisflow-platform
+
+    spec:
+      containers:
+        - name: gateway
+
+          image: aegisflow-api:latest
+
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: PORT
+              value: "8080"
+
+            - name: REDIS_HOST
+              value: "redis"
+
+            - name: REDIS_PORT
+              value: "6379"
+
+          resources:    #cost optimization, tell cpu how much storage this gateway needs 
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

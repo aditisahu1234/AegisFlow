@@ -1,0 +1,11 @@
+apiVersion: v1    #telling kubernetes which version of namespace api to use
+kind: Namespace   #naemspace is one of obejcts in kubernetes
+
+metadata:       #metadata identifies the object
+  name: aegisflow
+
+  labels:   #key-value pairs, we'll use labels everywhere in kubernetes
+    app.kubernetes.io/name: aegisflow
+    app.kubernetes.io/part-of: aegisflow-platform
+    environment: development
+    managed-by: kubectl
