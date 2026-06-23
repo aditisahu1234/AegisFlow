@@ -17,4 +17,6 @@ type Component interface {
 	Stop(ctx context.Context) error
 
 	Health(ctx context.Context) error
+
+	Dependencies() []Dependency
 }
