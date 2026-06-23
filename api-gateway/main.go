@@ -34,12 +34,13 @@ func main() { //needs a main func always
 	}
 
 	//call this function from redis/client.go
-	redis.ConnectRedis(cfg)
+	startupCtx := context.Background()
+	go redis.ConnectWithRetry(
+		startupCtx,
+		cfg,
+	)
 
 	redis.InitCircuitBreaker()
-
-	redis.RedisHealthy.Store(true)
-	telemetry.RedisHealth.Store(1)
 
 	redis.StartHealthMonitor()
 
@@ -124,7 +125,9 @@ func main() { //needs a main func always
 	}
 
 	// Close Redis connection
-	redis.Client.Close()
+	if redis.Client != nil {
+		redis.Client.Close()
+	}
 
 	log.Println("Server stopped gracefully.")
 }

@@ -1,4 +1,3 @@
-
 package handlers
 
 import (
@@ -338,4 +337,3 @@ Production Resilience & Distributed API Protection Platform
 		middleware.GlobalReliabilityMetrics.FallbackBlocks.Load(),
 	)
 }
-
