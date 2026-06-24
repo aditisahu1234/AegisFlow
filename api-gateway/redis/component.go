@@ -4,6 +4,7 @@ import (
 	"api-gateway/config"
 	"api-gateway/internal/runtime"
 	"context"
+	"errors"
 )
 
 type Component struct {
@@ -22,14 +23,7 @@ func (c *Component) Name() string {
 
 func (c *Component) Start(ctx context.Context) error {
 
-	go ConnectWithRetry(
-		ctx,
-		c.cfg,
-	)
-
-	StartHealthMonitor()
-
-	return nil
+	return ConnectRedis(c.cfg)
 }
 
 func (c *Component) Stop(ctx context.Context) error {
@@ -44,8 +38,12 @@ func (c *Component) Stop(ctx context.Context) error {
 func (c *Component) Health(ctx context.Context) error {
 
 	if Client == nil {
-		return context.Canceled
+		return errors.New("redis client not initialized")
 	}
 
 	return Client.Ping(ctx).Err()
+}
+
+func (c *Component) Dependencies() []runtime.Dependency {
+	return nil
 }

@@ -8,11 +8,13 @@ import (
 type EventType string
 
 const (
-	EventStarting EventType = "starting"
-	EventHealthy  EventType = "healthy"
-	EventFailed   EventType = "failed"
-	EventStopping EventType = "stopping"
-	EventStopped  EventType = "stopped"
+	EventStarting  EventType = "starting"
+	EventHealthy   EventType = "healthy"
+	EventUnhealthy EventType = "unhealthy"
+	EventRecovered EventType = "recovered"
+	EventFailed    EventType = "failed"
+	EventStopping  EventType = "stopping"
+	EventStopped   EventType = "stopped"
 )
 
 type Event struct {

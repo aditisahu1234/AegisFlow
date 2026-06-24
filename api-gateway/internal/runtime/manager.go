@@ -9,6 +9,7 @@ package runtime
 
 import (
 	"context"
+	"log"
 	"sync"
 )
 
@@ -22,6 +23,12 @@ type Manager struct {
 	state *StateStore
 
 	events *EventBus
+
+	dag *DAG
+
+	startupOrder []string
+
+	metrics *RuntimeMetrics
 }
 
 func NewManager() *Manager {
@@ -30,6 +37,7 @@ func NewManager() *Manager {
 		dependencies: make(map[string][]Dependency),
 		state:        NewStateStore(),
 		events:       NewEventBus(),
+		metrics:      &RuntimeMetrics{},
 	}
 }
 
@@ -48,23 +56,50 @@ func (m *Manager) Start(ctx context.Context) error {
 		return err
 	}
 
-	var wg sync.WaitGroup
+	if err := m.BuildRuntime(); err != nil {
+		return err
+	}
+	log.Println("Runtime startup order:")
 
-	for _, component := range m.components {
+	for i, name := range m.startupOrder {
 
-		wg.Add(1)
-
-		go func(c Component) {
-			defer wg.Done()
-
-			m.startComponent(
-				ctx,
-				c,
-			)
-
-		}(component)
+		log.Printf(
+			"%d. %s",
+			i+1,
+			name,
+		)
 	}
 
-	wg.Wait()
+	//swquential startup: deterministic, simple, debuggable
+	for _, name := range m.startupOrder {
+
+		component := m.components[name]
+
+		m.startComponent(
+			ctx,
+			component,
+		)
+	}
 	return nil
+}
+
+// we compute everything once
+func (m *Manager) BuildRuntime() error {
+
+	dag, err := m.BuildDAG()
+	if err != nil {
+		return err
+	}
+
+	order, err := dag.TopologicalSort()
+	if err != nil {
+		return err
+	}
+
+	m.dag = dag
+
+	m.startupOrder = order
+
+	return nil
+
 }

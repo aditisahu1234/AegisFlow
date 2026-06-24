@@ -6,10 +6,10 @@ package main
 import (
 	"api-gateway/config"
 	"api-gateway/handlers"
+	"api-gateway/internal/runtime"
 	"api-gateway/middleware"
-	"api-gateway/redis" //import redis
+	"api-gateway/redis"
 	"api-gateway/telemetry"
-
 	"context"
 	"log"
 	"net/http"
@@ -21,8 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func main() { //needs a main func always
-
+func main() {
 	cfg := config.Load()
 
 	telemetry.InitTelemetry()
@@ -33,100 +32,57 @@ func main() { //needs a main func always
 		log.Fatal(err)
 	}
 
-	//call this function from redis/client.go
-	startupCtx := context.Background()
-	go redis.ConnectWithRetry(
-		startupCtx,
-		cfg,
-	)
+	// Create the runtime manager
+	runtimemanager := runtime.NewManager()
 
-	redis.InitCircuitBreaker()
+	// Register the Redis component (and later other dependencies)
+	redisComponent := redis.NewComponent(cfg)
+	runtimemanager.Register(redisComponent)
 
-	redis.StartHealthMonitor()
+	// Start the health engine in the background
+	runtimeCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	//create limiter
-	limiter := redis.NewRedisSlidingWindowLimiter(
-		100, //100 requests per minute
-		time.Minute,
-	)
+	// Start all components (with retries handled inside)
+	if err := runtimemanager.Start(runtimeCtx); err != nil {
+		log.Fatalf("Failed to start runtime: %v", err)
+	}
+	runtimemanager.StartHealthEngine(runtimeCtx)
 
-	//create handler
-	protectedHandler := http.HandlerFunc(
-		handlers.ProtectedHandler,
-	)
+	// Start HTTP server as usual
+	limiter := redis.NewRedisSlidingWindowLimiter(100, time.Minute)
+	protectedHandler := http.HandlerFunc(handlers.ProtectedHandler)
 
-	//wrap the middleware (algo of rate limiter)
-	http.Handle(
-		"/api/data",
-		middleware.SlidingWindowMiddleware(
-			limiter,
-			protectedHandler,
-		),
-	)
+	http.Handle("/api/data", middleware.SlidingWindowMiddleware(limiter, protectedHandler))
+	http.HandleFunc("/health", handlers.HealthHandler)
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/dashboard", handlers.DashboardHandler)
 
-	http.HandleFunc( //register health handler route
-		"/health",
-		handlers.HealthHandler,
-	)
-	/*
-		http.HandleFunc( //register metrics handler route
-			"/metrics-json",
-			handlers.MetricsHandler,
-		)
-	*/
-	http.Handle( //adding new route
-		"/metrics",
-		promhttp.Handler(),
-	)
-
-	http.HandleFunc(
-		"/dashboard",
-		handlers.DashboardHandler,
-	)
-
-	// Create HTTP server
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: nil,
 	}
 
-	// Start server in a separate goroutine
 	go func() {
 		log.Println("Server running on :" + cfg.Port)
-
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}()
 
-	// Wait for shutdown signal
-	ctx, stop := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-
-	defer stop()
-
-	<-ctx.Done()
-
+	<-runtimeCtx.Done()
 	log.Println("Shutdown signal received...")
 
-	// Allow up to 10 seconds for graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(
-		context.Background(),
-		10*time.Second,
-	)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Gracefully stop HTTP server
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
 
-	// Close Redis connection
-	if redis.Client != nil {
-		redis.Client.Close()
+	// Gracefully stop all components via runtime manager if you add graceful shutdown
+	if err := runtimemanager.Stop(shutdownCtx); err != nil {
+		log.Printf("Runtime shutdown error: %v", err)
 	}
 
 	log.Println("Server stopped gracefully.")

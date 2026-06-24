@@ -21,9 +21,14 @@ func (s *StateStore) Set(name string, state State) {
 	s.states[name] = state
 }
 
-func (s *StateStore) Get(name string) State {
+func (s *StateStore) Get(component string) State {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.states[name]
+	state, ok := s.states[component]
+	if !ok {
+		return StateStopped
+	}
+
+	return state
 }
