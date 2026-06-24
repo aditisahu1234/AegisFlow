@@ -54,10 +54,31 @@ func main() {
 	protectedHandler := http.HandlerFunc(handlers.ProtectedHandler)
 
 	http.Handle("/api/data", middleware.SlidingWindowMiddleware(limiter, protectedHandler))
-	http.HandleFunc("/health", handlers.HealthHandler)
-	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/dashboard", handlers.DashboardHandler)
 
+	http.HandleFunc(
+		"/health",
+		handlers.HealthHandler,
+	)
+
+	http.HandleFunc(
+		"/ready",
+		handlers.ReadinessHandler(runtimemanager),
+	)
+
+	http.Handle(
+		"/metrics",
+		promhttp.Handler(),
+	)
+
+	http.HandleFunc(
+		"/dashboard",
+		handlers.DashboardHandler,
+	)
+
+	http.HandleFunc(
+		"/live",
+		handlers.LivenessHandler,
+	)
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: nil,

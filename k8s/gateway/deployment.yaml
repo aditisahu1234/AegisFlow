@@ -29,6 +29,37 @@ spec:
 
           ports:
             - containerPort: 8080
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+
+            initialDelaySeconds: 5    #wait 5s before checking
+            periodSeconds: 5          #check every 5s
+            timeoutSeconds: 2         #if ready doesnt answer in 2 sec, consider probe failed
+            failureThreshold: 3       #need 3 consecutive failures before marking not ready
+
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          startupProbe:
+            httpGet:
+              path: /live
+              port: 8080
+
+            periodSeconds: 5
+
+            failureThreshold: 12
+
+            timeoutSeconds: 2
 
           env:
             - name: PORT
