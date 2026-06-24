@@ -2,19 +2,23 @@ package redis
 
 import (
 	"context"
-	"time"		//sliding wind, time stamps'
-	"math/rand"
 	"log"
+	"math/rand"
+	"time" //sliding wind, time stamps'
+
 	//RETRY+EXPO BACKOFF+JITTER
 	"api-gateway/middleware"
-	"github.com/cenkalti/backoff/v4"		//failure resistance, CENKALTI
-	
-	"errors"							//gobreaker errors
-	"github.com/sony/gobreaker/v2"
+
+	"github.com/cenkalti/backoff/v4" //failure resistance, CENKALTI
+
 	"api-gateway/telemetry"
+	"errors" //gobreaker errors
+
+	"github.com/sony/gobreaker/v2"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 )
+
 type RedisSlidingWindowLimiter struct {
 	limit  int
 	window time.Duration
@@ -31,17 +35,17 @@ func NewRedisSlidingWindowLimiter(
 	}
 }
 
-//building redis sliding window sorted sets
+// building redis sliding window sorted sets
 func (l *RedisSlidingWindowLimiter) Allow(
 	ctx context.Context,
 	ip string,
 ) bool {
 
-	ctx, span :=	//creaing child span for redis rate limiter
-	telemetry.Tracer.Start(
-		ctx,
-		"redis_rate_limit_check",
-	)
+	ctx, span := //creaing child span for redis rate limiter
+		telemetry.Tracer.Start(
+			ctx,
+			"redis_rate_limit_check",
+		)
 
 	defer span.End()
 
@@ -55,7 +59,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			"rate_limit.ip",
 			ip,
 		),
-	
+
 		attribute.Int(
 			"rate_limit.limit",
 			l.limit,
@@ -65,7 +69,6 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			"limiter.type",
 			"redis_sorted_set",
 		),
-		
 	)
 
 	//if redis works then:
@@ -76,11 +79,10 @@ func (l *RedisSlidingWindowLimiter) Allow(
 		"redis_check_started",
 	)
 
-	key := "rate_limit:" + ip	//create redis key
-	now := time.Now().UnixMilli()		//precision---milliseconds
-	
-	windowStart := now - l.window.Milliseconds()	//calc windowstart
+	key := "rate_limit:" + ip     //create redis key
+	now := time.Now().UnixMilli() //precision---milliseconds
 
+	windowStart := now - l.window.Milliseconds() //calc windowstart
 
 	//CIRCUIT BREAKER
 
@@ -88,8 +90,8 @@ func (l *RedisSlidingWindowLimiter) Allow(
 	operation := func() error {
 
 		//every redis oper. needs a context
-		ctx, cancel := context.WithTimeout(		//adding dependency timeout
-			ctx,		//every retry gets 100ms fresh timeout instead of sharing one
+		ctx, cancel := context.WithTimeout( //adding dependency timeout
+			ctx, //every retry gets 100ms fresh timeout instead of sharing one
 			100*time.Millisecond,
 		)
 		defer cancel()
@@ -113,24 +115,47 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			"breaker_execute_started",
 		)
 
+		if RedisBreaker == nil {
+			log.Println("FATAL: RedisBreaker is nil")
+			return errors.New("redis breaker is nil")
+		}
+
+		if SlidingWindowScript == "" {
+			log.Println("FATAL: Lua script is empty")
+			return errors.New("lua script not loaded")
+		}
+		log.Println(
+			"RedisBreaker nil?",
+			RedisBreaker == nil,
+		)
+
+		log.Println(
+			"Redis Client nil?",
+			Client == nil,
+		)
+
+		log.Println(
+			"Lua Empty?",
+			SlidingWindowScript == "",
+		)
 		_, err := RedisBreaker.Execute(
 			func() (any, error) {
-	
-				redisStart := time.Now()	//start timer
+
+				redisStart := time.Now() //start timer
 
 				r, err := Client.Eval(
-					ctx,					//lua cript , sony go breaker
-					SlidingWindowScript,		//failure recorded by go breaker
+					ctx,                 //lua cript , sony go breaker
+					SlidingWindowScript, //failure recorded by go breaker
 					[]string{key},
-					now,				//circuit ready to trip-->OPEN
+					now, //circuit ready to trip-->OPEN
 					windowStart,
 					l.limit,
 				).Int()
-		
-				if err != nil {	//redis fails
+
+				if err != nil { //redis fails
 
 					//both redis rate limit check and circuit breaker show failure
-					span.RecordError(err)	//record error
+					span.RecordError(err) //record error
 					span.SetStatus(
 						codes.Error,
 						err.Error(),
@@ -149,12 +174,12 @@ func (l *RedisSlidingWindowLimiter) Allow(
 
 					middleware.GlobalCircuitMetrics.Failures.Add(1)
 					middleware.GlobalCircuitMetrics.Requests.Add(1)
-				
+
 					if errors.Is(
 						err,
 						context.DeadlineExceeded,
 					) {
-				
+
 						middleware.
 							GlobalReliabilityMetrics.
 							TimeoutCount.
@@ -164,17 +189,17 @@ func (l *RedisSlidingWindowLimiter) Allow(
 							ctx,
 							1,
 						)
-				
+
 						log.Println(
 							"Dependency timeout recorded",
 						)
 					}
-				
+
 					log.Println(
 						"Breaker saw error:",
 						err,
 					)
-				
+
 					return nil, err
 				}
 
@@ -186,7 +211,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 					"breaker_closed",
 				)
 				telemetry.FallbackMode.Store(0)
-				
+
 				breakerSpan.SetAttributes(
 					attribute.String(
 						"breaker.state",
@@ -195,7 +220,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				)
 
 				redisDuration :=
-					time.Since(redisStart)		//end timer, record time
+					time.Since(redisStart) //end timer, record time
 
 				telemetry.
 					RedisLatencyHistogram.
@@ -220,18 +245,18 @@ func (l *RedisSlidingWindowLimiter) Allow(
 					span.AddEvent(
 						"request_allowed",
 					)
-				
+
 				} else {
-				
+
 					span.AddEvent(
 						"request_blocked",
 					)
 				}
-		
+
 				return nil, nil
 			},
 		)
-		
+
 		//Handle Open Circuit, After retries fail, Gobreaker may start returning:
 		if err != nil {
 
@@ -243,33 +268,33 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				breakerSpan.AddEvent(
 					"breaker_open",
 				)
-				
+
 				breakerSpan.SetAttributes(
 					attribute.String(
 						"breaker.state",
 						"open",
 					),
 				)
-			
+
 				middleware.
 					GlobalReliabilityMetrics.
 					CircuitRejectedCount.
 					Add(1)
-			
+
 				log.Println(
 					"Circuit OPEN - failing fast",
 				)
-			
+
 				return err
 			}
-		
+
 			if errors.Is(
 				err,
 				gobreaker.ErrTooManyRequests,
 			) {
 				return err
 			}
-		
+
 			return err
 		}
 		return nil
@@ -282,14 +307,14 @@ func (l *RedisSlidingWindowLimiter) Allow(
 	b.Multiplier = 2
 	b.MaxInterval = 1 * time.Second
 	b.MaxElapsedTime = 3 * time.Second
-	b.RandomizationFactor = 0	//disable library jitter, use AWS Full Jitter manually
+	b.RandomizationFactor = 0 //disable library jitter, use AWS Full Jitter manually
 
 	b.Reset()
 
 	//RETRY LOGIC
 	for attempt := 0; attempt < 3; attempt++ {
 
-		retryCtx, retrySpan :=	//retry span
+		retryCtx, retrySpan := //retry span
 			telemetry.Tracer.Start(
 				ctx,
 				"retry_attempt",
@@ -309,15 +334,15 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				RetryCount.
 				Add(1)
 
-			telemetry.RetryCounter.Add(		//updating global telemetry
+			telemetry.RetryCounter.Add( //updating global telemetry
 				retryCtx,
 				1,
 			)
 		}
-	
+
 		err := operation()
 
-		if err != nil {	//RETRY FAILURE
+		if err != nil { //RETRY FAILURE
 
 			retrySpan.RecordError(err)
 
@@ -332,10 +357,10 @@ func (l *RedisSlidingWindowLimiter) Allow(
 				codes.Error,
 				err.Error(),
 			)
-		
+
 		}
 
-		if err == nil {	//RETRY SUCCEEDS
+		if err == nil { //RETRY SUCCEEDS
 			retrySpan.AddEvent(
 				"retry_succeeded",
 			)
@@ -347,16 +372,16 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			)
 
 			if result == 1 {
-		
+
 				middleware.GlobalMetrics.
 					AllowedRequests++
-		
+
 			} else {
-		
+
 				middleware.GlobalMetrics.
 					BlockedRequests++
 			}
-		
+
 			return result == 1
 		}
 
@@ -369,14 +394,14 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			log.Println(
 				"FALLBACK LIMITER ACTIVE",
 			)
-		
+
 			telemetry.FallbackMode.Store(1)
 
 			middleware.
 				GlobalReliabilityMetrics.
 				CircuitRejectedCount.
 				Add(1)
-		
+
 			//store result
 			span.AddEvent(
 				"fallback_limiter_activated",
@@ -399,7 +424,7 @@ func (l *RedisSlidingWindowLimiter) Allow(
 					"fallback.type",
 					"in_memory_sliding_window",
 				),
-				
+
 				attribute.String(
 					"fallback.reason",
 					"circuit_breaker_open",
@@ -454,31 +479,31 @@ func (l *RedisSlidingWindowLimiter) Allow(
 			"backoff_started",
 		)
 		//BACKOFF STARTED
-		expoDelay := b.NextBackOff()		//using cenkalti
+		expoDelay := b.NextBackOff() //using cenkalti
 
 		jitterDelay :=
 			time.Duration(
-				rand.Int63n(		//using full jitter AWS, implemented on my own
+				rand.Int63n( //using full jitter AWS, implemented on my own
 					int64(expoDelay),
 				),
 			)
 
-		telemetry.					//delay histogram
-			RetryDelayHistogram.
-			Record(
-				retryCtx,		//using trace context
+		telemetry. //delay histogram
+				RetryDelayHistogram.
+				Record(
+				retryCtx, //using trace context
 				jitterDelay.Seconds(),
 			)
-		
-		time.Sleep(jitterDelay)	//BACKOFF FINISHED
+
+		time.Sleep(jitterDelay) //BACKOFF FINISHED
 		retrySpan.AddEvent(
 			"backoff_finished",
 		)
 		retrySpan.End()
-		
+
 	}
 
-	/* sleep =		
+	/* sleep =
 	random(
 		0,
 		min(cap, base * 2^attempt)

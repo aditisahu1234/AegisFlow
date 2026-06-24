@@ -7,6 +7,9 @@ metadata:
 spec:
   replicas: 2   #initially starting with 2 Gateway pods, in case 1 dies
 
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 5
+
   strategy:
     type: RollingUpdate
 
@@ -28,8 +31,30 @@ spec:
         app.kubernetes.io/part-of: aegisflow-platform
 
     spec:
+
+      terminationGracePeriodSeconds: 30
+      #pod anti-affinity
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: aegisflow
+                    app.kubernetes.io/component: gateway
+
       containers:
         - name: gateway
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                 - ALL
 
           image: aegisflow-api:latest
 

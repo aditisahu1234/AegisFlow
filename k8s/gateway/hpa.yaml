@@ -1,0 +1,55 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+
+metadata:
+  name: aegisflow-gateway
+  namespace: aegisflow
+
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegisflow-gateway
+
+  minReplicas: 2    #never go below 2 gateway pods
+  maxReplicas: 6     #temporarily for local testing
+
+  metrics:
+    - type: Resource
+
+      resource:
+        name: cpu
+
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+  behavior:
+
+    scaleUp:
+
+      stabilizationWindowSeconds: 0
+
+      policies:
+
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+
+      selectPolicy: Max
+
+    scaleDown:
+
+      stabilizationWindowSeconds: 300
+
+      policies:
+
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+
+      selectPolicy: Max

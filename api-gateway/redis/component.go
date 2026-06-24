@@ -23,7 +23,18 @@ func (c *Component) Name() string {
 
 func (c *Component) Start(ctx context.Context) error {
 
-	return ConnectRedis(c.cfg)
+	InitCircuitBreaker()
+
+	err := ConnectRedis(c.cfg)
+
+	if err != nil {
+		return err
+	}
+
+	StartHealthMonitor()
+
+	return nil
+
 }
 
 func (c *Component) Stop(ctx context.Context) error {

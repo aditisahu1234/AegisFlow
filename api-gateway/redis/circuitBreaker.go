@@ -1,24 +1,26 @@
-//implementing sony circuitbreaker here
+// implementing sony circuitbreaker here
 package redis
 
 import (
+	"api-gateway/middleware"
+	"api-gateway/telemetry"
 	"context"
 	"log"
 	"time"
-	"api-gateway/middleware"
+
 	"github.com/sony/gobreaker/v2"
-	"api-gateway/telemetry"
 )
 
 var RedisBreaker *gobreaker.CircuitBreaker[any]
 
 func InitCircuitBreaker() {
+	log.Println("Redis Circuit Breaker Initialized")
 
 	settings := gobreaker.Settings{
 
 		Name: "redis-breaker",
 
-		// Half-open state, allow 3 reqs while half open, check if success or not  
+		// Half-open state, allow 3 reqs while half open, check if success or not
 		MaxRequests: 3,
 
 		// Rolling window		look at last 10 seconds
@@ -48,7 +50,7 @@ func InitCircuitBreaker() {
 				float64(counts.TotalFailures) /
 					float64(counts.Requests)
 
-			return failureRate >= 0.5		//error treshold, open circuit after this much error percentage
+			return failureRate >= 0.5 //error treshold, open circuit after this much error percentage
 		},
 
 		OnStateChange: func(
@@ -77,12 +79,12 @@ func InitCircuitBreaker() {
 					context.Background(),
 					1,
 				)
-		
+
 			case gobreaker.StateHalfOpen:
 				telemetry.CircuitState.Store(1)
 				middleware.GlobalCircuitMetrics.
 					HalfOpenCount.Add(1)
-		
+
 			case gobreaker.StateClosed:
 				telemetry.CircuitState.Store(2)
 				middleware.GlobalCircuitMetrics.
@@ -90,17 +92,17 @@ func InitCircuitBreaker() {
 			}
 		},
 	}
-/*creates sony's internal state machine, internally it tracks:
-type Counts struct {
-    Requests
-    TotalSuccesses
-    TotalFailures
-    ConsecutiveSuccesses
-    ConsecutiveFailures
-}
-*/
+	/*creates sony's internal state machine, internally it tracks:
+	  type Counts struct {
+	      Requests
+	      TotalSuccesses
+	      TotalFailures
+	      ConsecutiveSuccesses
+	      ConsecutiveFailures
+	  }
+	*/
 	RedisBreaker =
-		gobreaker.NewCircuitBreaker[any](		//sony gobreaker used
+		gobreaker.NewCircuitBreaker[any]( //sony gobreaker used
 			settings,
 		)
 }

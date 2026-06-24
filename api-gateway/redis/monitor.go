@@ -1,20 +1,32 @@
-//redis health monitor
-//contionuosly check and updates the health 
+// redis health monitor
+// contionuosly check and updates the health
 package redis
 
 import (
+	"api-gateway/middleware"
+	"api-gateway/telemetry"
 	"context"
 	"log"
 	"time"
-	"api-gateway/middleware"
-	"api-gateway/telemetry"
 )
 
-func StartHealthMonitor() {		
+func StartHealthMonitor() {
 
 	go func() {
 
 		for {
+
+			if Client == nil {
+
+				RedisHealthy.Store(false)
+				telemetry.RedisHealth.Store(0)
+
+				time.Sleep(
+					5 * time.Second,
+				)
+
+				continue
+			}
 
 			err := Client.Ping(
 				context.Background(),
@@ -48,8 +60,8 @@ func StartHealthMonitor() {
 			}
 
 			time.Sleep(
-				5 * time.Second,		//every 5 seconds, monitor
-			)							//does PING redis
+				5 * time.Second, //every 5 seconds, monitor
+			) //does PING redis
 		}
 	}()
 }
