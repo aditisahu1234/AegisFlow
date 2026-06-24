@@ -7,6 +7,14 @@ metadata:
 spec:
   replicas: 2   #initially starting with 2 Gateway pods, in case 1 dies
 
+  strategy:
+    type: RollingUpdate
+
+    rollingUpdate:
+      maxUnavailable: 0   #never let applic. lose capacity during deployemnet
+
+      maxSurge: 1         #allow kubernetes to temporarily create 3 pods during deployment
+
   selector:     #gateway finds pods on it's own by using labels
     matchLabels:  
       app.kubernetes.io/name: aegisflow
@@ -61,15 +69,9 @@ spec:
 
             timeoutSeconds: 2
 
-          env:
-            - name: PORT
-              value: "8080"
-
-            - name: REDIS_HOST
-              value: "redis"
-
-            - name: REDIS_PORT
-              value: "6379"
+          envFrom:  #injects every key from the config map
+          - configMapRef:
+              name: aegisflow-config
 
           resources:    #cost optimization, tell cpu how much storage this gateway needs 
             requests:
