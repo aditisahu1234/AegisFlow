@@ -6,7 +6,33 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 from src.config import MODEL_ARTIFACTS_DIR
+import numpy as np
+import pandas as pd
 
+
+def compute_deviation_scores(
+    model: IsolationForest,
+    X: pd.DataFrame,
+) -> np.ndarray:
+    """
+    Compute a continuous deviation-from-normality score.
+
+    sklearn IsolationForest.score_samples():
+        higher value -> more normal
+        lower value  -> more anomalous
+
+    Normality Fusion requires the opposite orientation:
+        higher deviation -> more abnormal
+
+    Therefore:
+        deviation(x) = -score_samples(x)
+    """
+
+    normality_scores = model.score_samples(X)
+
+    deviation_scores = -normality_scores
+
+    return deviation_scores
 
 ISOLATION_FOREST_PATH = (
     MODEL_ARTIFACTS_DIR

@@ -1,11 +1,5 @@
 import pandas as pd
 
-from src.models.isolation_forest import (
-    extract_normal_samples,
-    fit_isolation_forest,
-    save_isolation_forest,
-)
-
 from src.preprocessing.loader import (
     load_dataset,
 )
@@ -34,7 +28,24 @@ from src.preprocessing.encoder import (
     save_encoder,
 )
 
+from src.models.isolation_forest import (
+    extract_normal_samples,
+    fit_isolation_forest,
+    save_isolation_forest,
+)
 
+from src.models.isolation_forest import (
+    extract_normal_samples,
+    fit_isolation_forest,
+    save_isolation_forest,
+    compute_deviation_scores,
+)
+
+from src.features.normality import (
+    fit_ecdf_reference,
+    transform_ecdf,
+    save_ecdf_reference,
+)
 # ==========================================
 # 1. LOAD DATASET
 # ==========================================
@@ -203,4 +214,135 @@ save_isolation_forest(
 
 print(
     "Isolation Forest trained."
+)
+
+# ==========================================
+# 12. DEVIATION SCORES
+# ==========================================
+
+train_deviation_scores = compute_deviation_scores(
+    isolation_forest,
+    X_train,
+)
+
+test_deviation_scores = compute_deviation_scores(
+    isolation_forest,
+    X_test,
+)
+
+print(
+    "\nDeviation scores:"
+)
+
+print(
+    "Train:",
+    train_deviation_scores.shape,
+)
+
+print(
+    "Test:",
+    test_deviation_scores.shape,
+)
+
+print(
+    "\nTrain deviation statistics:"
+)
+
+print(
+    pd.Series(
+        train_deviation_scores
+    ).describe()
+)
+
+
+#sanity test
+normal_mask = (
+    y_train.to_numpy() == "normal"
+)
+
+normal_mean_deviation = (
+    train_deviation_scores[
+        normal_mask
+    ].mean()
+)
+
+non_normal_mean_deviation = (
+    train_deviation_scores[
+        ~normal_mask
+    ].mean()
+)
+
+print(
+    "\nMean deviation:"
+)
+
+print(
+    "Normal:",
+    normal_mean_deviation,
+)
+
+print(
+    "Non-normal:",
+    non_normal_mean_deviation,
+)
+
+# ==========================================
+# 13. ECDF REFERENCE
+# ==========================================
+
+ecdf_reference = fit_ecdf_reference(
+    train_deviation_scores,
+)
+
+save_ecdf_reference(
+    ecdf_reference,
+)
+
+
+# ==========================================
+# 14. PERCENTILE RANKS
+# ==========================================
+
+train_percentile_ranks = transform_ecdf(
+    train_deviation_scores,
+    ecdf_reference,
+)
+
+test_percentile_ranks = transform_ecdf(
+    test_deviation_scores,
+    ecdf_reference,
+)
+
+print(
+    "\nECDF percentile ranks:"
+)
+
+print(
+    "Train:",
+    train_percentile_ranks.shape,
+)
+
+print(
+    "Test:",
+    test_percentile_ranks.shape,
+)
+
+print(
+    "\nTrain percentile statistics:"
+)
+
+print(
+    pd.Series(
+        train_percentile_ranks
+    ).describe()
+)
+
+print(
+    "\nTest percentile statistics:"
+)
+
+print(
+    pd.Series(
+        test_percentile_ranks
+    ).describe()
 )
