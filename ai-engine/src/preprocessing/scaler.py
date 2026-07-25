@@ -1,31 +1,49 @@
 import joblib
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from sklearn.preprocessing import StandardScaler
 
 from src.config import (
     NUMERIC_COLUMNS,
-    ARTIFACTS_DIR,
-
+    PREPROCESSING_ARTIFACTS_DIR,
 )
+
+
+SCALER_PATH = (
+    PREPROCESSING_ARTIFACTS_DIR
+    / "scaler.joblib"
+)
+
+
 def log_transform(
     df: pd.DataFrame,
 ) -> pd.DataFrame:
+    """
+    Apply the paper's distribution-stabilising transformation:
+
+        x' = log(1 + max(x, 0))
+
+    Only numerical features are transformed.
+    """
 
     df = df.copy()
 
     for column in NUMERIC_COLUMNS:
-
         df[column] = np.log1p(
             df[column].clip(lower=0)
         )
 
     return df
 
+
 def fit_scaler(
     train_df: pd.DataFrame,
-):
+) -> tuple[pd.DataFrame, StandardScaler]:
+    """
+    Fit StandardScaler using training data only
+    and transform the training data.
+    """
 
     scaler = StandardScaler()
 
@@ -35,42 +53,49 @@ def fit_scaler(
         train_df[NUMERIC_COLUMNS]
     )
 
-    return (
-        train_df,
-        scaler,
-    )
+    return train_df, scaler
 
 
 def transform_scaler(
-    test_df: pd.DataFrame,
-    scaler,
-):
+    df: pd.DataFrame,
+    scaler: StandardScaler,
+) -> pd.DataFrame:
+    """
+    Transform data using an already-fitted scaler.
+    """
 
-    test_df = test_df.copy()
+    df = df.copy()
 
-    test_df[NUMERIC_COLUMNS] = scaler.transform(
-        test_df[NUMERIC_COLUMNS]
+    df[NUMERIC_COLUMNS] = scaler.transform(
+        df[NUMERIC_COLUMNS]
     )
 
-    return test_df
+    return df
+
 
 def save_scaler(
-    scaler,
-):
-    ARTIFACTS_DIR.mkdir(
+    scaler: StandardScaler,
+) -> None:
+    """
+    Persist the fitted training scaler for inference.
+    """
+
+    PREPROCESSING_ARTIFACTS_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     joblib.dump(
         scaler,
-        ARTIFACTS_DIR /
-        "standard_scaler.joblib",
+        SCALER_PATH,
     )
 
-def load_scaler():
+
+def load_scaler() -> StandardScaler:
+    """
+    Load the exact scaler fitted during training.
+    """
 
     return joblib.load(
-        ARTIFACTS_DIR /
-        "standard_scaler.joblib"
+        SCALER_PATH
     )

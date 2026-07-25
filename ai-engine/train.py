@@ -1,8 +1,24 @@
-from src.preprocessing.loader import load_dataset
+import pandas as pd
 
-from src.preprocessing.cleaning import (
+from src.models.isolation_forest import (
+    extract_normal_samples,
+    fit_isolation_forest,
+    save_isolation_forest,
+)
+
+from src.preprocessing.loader import (
+    load_dataset,
+)
+
+from src.preprocessing.cleaner import (
     remove_leakage_columns,
-    fill_missing_values,
+    fit_imputer,
+    transform_imputer,
+    save_imputer,
+)
+
+from src.preprocessing.splitter import (
+    split_dataset,
 )
 
 from src.preprocessing.scaler import (
@@ -18,17 +34,24 @@ from src.preprocessing.encoder import (
     save_encoder,
 )
 
-from src.preprocessing.splitter import (
-    split_dataset,
-)
 
-import pandas as pd
+# ==========================================
+# 1. LOAD DATASET
+# ==========================================
 
 df = load_dataset()
 
+
+# ==========================================
+# 2. REMOVE LEAKAGE COLUMNS
+# ==========================================
+
 df = remove_leakage_columns(df)
 
-df = fill_missing_values(df)
+
+# ==========================================
+# 3. TRAIN / TEST SPLIT
+# ==========================================
 
 (
     X_train,
@@ -37,33 +60,86 @@ df = fill_missing_values(df)
     y_test,
 ) = split_dataset(df)
 
-X_train = log_transform(X_train)
 
-X_test = log_transform(X_test)
+# ==========================================
+# 4. MISSING VALUE IMPUTATION
+# ==========================================
+# Learn median/mode ONLY from training data.
 
-X_train, encoder = fit_encoder(X_train)
-
-save_encoder(
-    encoder,
+X_train, imputer_values = fit_imputer(
+    X_train
 )
+
+# Apply the SAME learned values to test data.
+
+X_test = transform_imputer(
+    X_test,
+    imputer_values,
+)
+
+save_imputer(
+    imputer_values
+)
+
+
+# ==========================================
+# 5. LOG TRANSFORMATION
+# ==========================================
+
+X_train = log_transform(
+    X_train
+)
+
+X_test = log_transform(
+    X_test
+)
+
+
+# ==========================================
+# 6. ONE-HOT ENCODING
+# ==========================================
+# Encoder learns categories from train only.
+
+X_train, encoder = fit_encoder(
+    X_train
+)
+
+# Test uses training encoder.
 
 X_test = transform_encoder(
     X_test,
     encoder,
 )
 
-X_train, scaler = fit_scaler(
-    X_train,
+save_encoder(
+    encoder
 )
 
-save_scaler(
-    scaler,
+
+# ==========================================
+# 7. STANDARDIZATION
+# ==========================================
+# Scaler learns mean/std from train only.
+
+X_train, scaler = fit_scaler(
+    X_train
 )
+
+# Test uses training mean/std.
 
 X_test = transform_scaler(
     X_test,
     scaler,
 )
+
+save_scaler(
+    scaler
+)
+
+
+# ==========================================
+# 8. RECONSTRUCT DATAFRAMES
+# ==========================================
 
 train_df = pd.concat(
     [
@@ -81,10 +157,50 @@ test_df = pd.concat(
     axis=1,
 )
 
+
+# ==========================================
+# 9. VERIFY PIPELINE
+# ==========================================
+
+print("\nTraining data:")
 print(train_df.head())
 
-print()
+print("\nShapes:")
+print("Train:", train_df.shape)
+print("Test:", test_df.shape)
 
-print(train_df.shape)
+print("\nMissing values:")
+print("Train:", train_df.isna().sum().sum())
+print("Test:", test_df.isna().sum().sum())
 
-print(test_df.shape)
+print("\nPreprocessing complete.")
+
+# ==========================================
+# 10. NORMAL SAMPLE EXTRACTION
+# ==========================================
+
+X_normal = extract_normal_samples(
+    X_train,
+    y_train,
+)
+
+print(
+    "\nNormal training samples:",
+    X_normal.shape[0],
+)
+
+# ==========================================
+# 11. ISOLATION FOREST
+# ==========================================
+
+isolation_forest = fit_isolation_forest(
+    X_normal,
+)
+
+save_isolation_forest(
+    isolation_forest,
+)
+
+print(
+    "Isolation Forest trained."
+)

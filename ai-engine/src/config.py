@@ -14,6 +14,10 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
+PREPROCESSING_ARTIFACTS_DIR = ARTIFACTS_DIR / "preprocessing"
+
+MODEL_ARTIFACTS_DIR = ARTIFACTS_DIR / "models"
+
 # ===========================================
 # DATASET
 # ===========================================

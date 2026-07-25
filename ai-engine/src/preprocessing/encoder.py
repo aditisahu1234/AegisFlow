@@ -5,13 +5,19 @@ from sklearn.preprocessing import OneHotEncoder
 
 from src.config import (
     CATEGORICAL_COLUMNS,
-    ARTIFACTS_DIR,
+    PREPROCESSING_ARTIFACTS_DIR,
+)
+
+
+ENCODER_PATH = (
+    PREPROCESSING_ARTIFACTS_DIR
+    / "encoder.joblib"
 )
 
 
 def fit_encoder(
     train_df: pd.DataFrame,
-):
+) -> tuple[pd.DataFrame, OneHotEncoder]:
 
     encoder = OneHotEncoder(
         sparse_output=False,
@@ -46,12 +52,12 @@ def fit_encoder(
 
 
 def transform_encoder(
-    test_df: pd.DataFrame,
-    encoder,
-):
+    df: pd.DataFrame,
+    encoder: OneHotEncoder,
+) -> pd.DataFrame:
 
     encoded = encoder.transform(
-        test_df[CATEGORICAL_COLUMNS]
+        df[CATEGORICAL_COLUMNS]
     )
 
     encoded_df = pd.DataFrame(
@@ -59,43 +65,41 @@ def transform_encoder(
         columns=encoder.get_feature_names_out(
             CATEGORICAL_COLUMNS
         ),
-        index=test_df.index,
+        index=df.index,
     )
 
-    test_df = test_df.drop(
+    df = df.drop(
         columns=CATEGORICAL_COLUMNS
     )
 
-    test_df = pd.concat(
+    df = pd.concat(
         [
-            test_df,
+            df,
             encoded_df,
         ],
         axis=1,
     )
 
-    return test_df
+    return df
 
 
 def save_encoder(
-    encoder,
-):
+    encoder: OneHotEncoder,
+) -> None:
 
-    ARTIFACTS_DIR.mkdir(
+    PREPROCESSING_ARTIFACTS_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     joblib.dump(
         encoder,
-        ARTIFACTS_DIR /
-        "one_hot_encoder.joblib",
+        ENCODER_PATH,
     )
 
 
-def load_encoder():
+def load_encoder() -> OneHotEncoder:
 
     return joblib.load(
-        ARTIFACTS_DIR /
-        "one_hot_encoder.joblib",
+        ENCODER_PATH
     )
