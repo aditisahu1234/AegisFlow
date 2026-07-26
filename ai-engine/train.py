@@ -46,6 +46,17 @@ from src.features.normality import (
     transform_ecdf,
     save_ecdf_reference,
 )
+from src.features.fusion import (
+    fuse_normality_features,
+)
+
+from src.training.class_weights import (
+    compute_class_prior_weights,
+)
+from src.models.hist_gradient_boosting import (
+    train_hist_gradient_boosting,
+    save_hist_gradient_boosting,
+)
 # ==========================================
 # 1. LOAD DATASET
 # ==========================================
@@ -345,4 +356,135 @@ print(
     pd.Series(
         test_percentile_ranks
     ).describe()
+)
+
+# ==========================================
+# 15. NORMALITY FEATURE FUSION
+# ==========================================
+
+X_train_fused = fuse_normality_features(
+    X_train,
+    train_deviation_scores,
+    train_percentile_ranks,
+)
+
+X_test_fused = fuse_normality_features(
+    X_test,
+    test_deviation_scores,
+    test_percentile_ranks,
+)
+
+print(
+    "\nNormality Fusion complete."
+)
+
+print(
+    "Original feature count:",
+    X_train.shape[1],
+)
+
+print(
+    "Fused feature count:",
+    X_train_fused.shape[1],
+)
+
+print(
+    "\nFused training shape:",
+    X_train_fused.shape,
+)
+
+print(
+    "Fused test shape:",
+    X_test_fused.shape,
+)
+
+print(
+    "\nNormality features:"
+)
+
+print(
+    X_train_fused[
+        [
+            "normality_deviation",
+            "normality_percentile",
+        ]
+    ].head()
+)
+
+print(
+    "\nTraining class distribution"
+)
+
+print(
+    y_train.value_counts()
+)
+
+print(
+    "\nTraining class proportions:"
+)
+
+print(
+    y_train.value_counts(normalize=True)
+)
+
+# ==========================================
+# 16. CLASS-PRIOR WEIGHTING
+# ==========================================
+
+class_weights, sample_weights = (
+    compute_class_prior_weights(
+        y_train
+    )
+)
+
+print(
+    "\nClass-prior weighting:"
+)
+
+for class_label, weight in class_weights.items():
+    print(
+        f"{class_label}: {weight:.6f}"
+    )
+
+print(
+    "\nSample weights shape:",
+    sample_weights.shape,
+)
+
+print(
+    "Minimum sample weight:",
+    sample_weights.min(),
+)
+
+print(
+    "Maximum sample weight:",
+    sample_weights.max(),
+)
+
+# ==========================================
+# 17. WEIGHTED HISTOGRAM GRADIENT BOOSTING
+# ==========================================
+
+hgb_model = train_hist_gradient_boosting(
+    X_train=X_train_fused,
+    y_train=y_train,
+    sample_weights=sample_weights,
+)
+
+save_hist_gradient_boosting(
+    hgb_model
+)
+
+print(
+    "\nWeighted HistGradientBoosting trained."
+)
+
+print(
+    "Classes:",
+    hgb_model.classes_,
+)
+
+print(
+    "Iterations:",
+    hgb_model.n_iter_,
 )
