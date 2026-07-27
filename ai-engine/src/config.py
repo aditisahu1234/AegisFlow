@@ -22,9 +22,9 @@ MODEL_ARTIFACTS_DIR = ARTIFACTS_DIR / "models"
 # DATASET
 # ===========================================
 
-DATASET_PATH = RAW_DATA_DIR / "supervised_dataset.csv"
+DATASET_PATH = RAW_DATA_DIR / "remaining_behavior_ext.csv"
 
-TARGET_COLUMN = "classification"
+TARGET_COLUMN = "behavior_type"
 
 # ===========================================
 # REMOVE BEFORE TRAINING
@@ -33,6 +33,7 @@ TARGET_COLUMN = "classification"
 LEAKAGE_COLUMNS = [
     "_id",
     "Unnamed: 0",
+    "behavior",
 ]
 
 # ===========================================

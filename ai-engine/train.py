@@ -57,6 +57,10 @@ from src.models.hist_gradient_boosting import (
     train_hist_gradient_boosting,
     save_hist_gradient_boosting,
 )
+
+from src.evaluation.evaluator import (
+    evaluate_classifier,
+)
 # ==========================================
 # 1. LOAD DATASET
 # ==========================================
@@ -487,4 +491,87 @@ print(
 print(
     "Iterations:",
     hgb_model.n_iter_,
+)
+
+# ==========================================
+# 18. HELD-OUT TEST EVALUATION
+# ==========================================
+
+evaluation = evaluate_classifier(
+    model=hgb_model,
+    X_test=X_test_fused,
+    y_test=y_test,
+)
+
+print(
+    "\n===== NORMALITY FUSION EVALUATION ====="
+)
+
+print(
+    f"Accuracy: "
+    f"{evaluation['accuracy']:.6f}"
+)
+
+print(
+    f"Macro Precision: "
+    f"{evaluation['precision_macro']:.6f}"
+)
+
+print(
+    f"Macro Recall: "
+    f"{evaluation['recall_macro']:.6f}"
+)
+
+print(
+    f"Macro F1: "
+    f"{evaluation['f1_macro']:.6f}"
+)
+
+print(
+    f"Weighted Precision: "
+    f"{evaluation['precision_weighted']:.6f}"
+)
+
+print(
+    f"Weighted Recall: "
+    f"{evaluation['recall_weighted']:.6f}"
+)
+
+print(
+    f"Weighted F1: "
+    f"{evaluation['f1_weighted']:.6f}"
+)
+
+print(
+    f"Macro ROC-AUC (OvR): "
+    f"{evaluation['roc_auc_macro_ovr']:.6f}"
+)
+
+print(
+    f"Weighted ROC-AUC (OvR): "
+    f"{evaluation['roc_auc_weighted_ovr']:.6f}"
+)
+
+print(
+    "\nClasses:"
+)
+
+print(
+    evaluation["classes"]
+)
+
+print(
+    "\nConfusion Matrix:"
+)
+
+print(
+    evaluation["confusion_matrix"]
+)
+
+print(
+    "\nClassification Report:"
+)
+
+print(
+    evaluation["classification_report"]
 )
