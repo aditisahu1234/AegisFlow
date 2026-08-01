@@ -359,12 +359,49 @@ k6 run load-test.js
 
 ### Level 4 — Adaptive Intelligent Protection Platform
 
-* Traffic Intelligence Engine
-* Threat Classification
-* Anomaly Detection
-* Adaptive Rate Limits
-* Traffic Forecasting
-* AI-driven Decisions
+## AI Engine (Normality Fusion)
+
+The repository now includes an independent machine learning engine located under:
+
+ai-engine/
+
+The AI engine reproduces and extends the Normality Fusion Hybrid Model proposed for API Access Behaviour Anomaly Detection.
+
+Implemented components include:
+
+- Isolation Forest normality modelling
+- Deviation score computation
+- ECDF percentile normalization
+- Normality Feature Fusion
+- Random Over-Sampling (ROS)
+- SMOTE
+- Histogram Gradient Boosting
+- Logistic Regression baseline
+- Plain HGB baseline
+- Ablation studies
+- ROC analysis
+- Confusion matrices
+- Feature importance
+- Error analysis
+- Automatic metrics export
+
+The AI engine is designed as the future intelligence layer of AegisFlow and will eventually operate as the decision engine behind adaptive API protection.
+
+See:
+
+ai-engine/README.md
+
+Traffic Intelligence Engine ✅
+
+Normality Fusion AI Engine ✅
+
+Real-Time Feature Extraction 🔄
+
+Streaming Inference 🔄
+
+Adaptive Risk Scoring 🔄
+
+Continuous Retraining 🔄
 
 ---
 

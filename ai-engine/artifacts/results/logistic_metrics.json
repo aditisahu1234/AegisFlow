@@ -1,0 +1,12 @@
+{
+    "accuracy": 0.9307640166553695,
+    "precision_macro": 0.6172503490090979,
+    "recall_macro": 0.903366421949565,
+    "f1_macro": 0.645187315345228,
+    "precision_weighted": 0.9746201557452688,
+    "recall_weighted": 0.9307640166553695,
+    "f1_weighted": 0.9486855750578408,
+    "roc_auc_macro_ovr": 0.9881308516121626,
+    "roc_auc_weighted_ovr": 0.9955803598759205,
+    "classification_report": "              precision    recall  f1-score   support\n\n      attack       0.02      0.83      0.04         6\n         bot       0.46      0.89      0.60       393\n      normal       1.00      0.97      0.98      2684\n     outlier       0.99      0.92      0.95      7244\n\n    accuracy                           0.93     10327\n   macro avg       0.62      0.90      0.65     10327\nweighted avg       0.97      0.93      0.95     10327\n"
+}

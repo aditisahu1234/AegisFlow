@@ -1,0 +1,7 @@
+{
+    "isolation_forest_seconds": 0.819904041942209,
+    "fusion_hgb_seconds": 14.825017582974397,
+    "baseline_hgb_seconds": 13.52390779205598,
+    "logistic_seconds": 0.927702666958794,
+    "entire_pipeline_seconds": 93.07027829100844
+}

@@ -6,70 +6,60 @@ from sklearn.ensemble import (
     HistGradientBoostingClassifier,
 )
 
-from src.config import MODEL_ARTIFACTS_DIR
+from src.config import (
+    MODEL_ARTIFACTS_DIR,
+)
 
 
 MODEL_PATH = (
     MODEL_ARTIFACTS_DIR
-    / "hist_gradient_boosting.joblib"
+    / "hist_gradient_boosting_baseline.joblib"
 )
 
 
-def train_hist_gradient_boosting(
+def train_hgb_baseline(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     sample_weights: np.ndarray,
-    max_depth: int = 7,
-    learning_rate: float = 0.05,
-    max_iter: int = 700,
-    min_samples_leaf: int = 30,
-    random_state: int = 42,
 ) -> HistGradientBoostingClassifier:
     """
-    Train the imbalance-aware Histogram-based
-    Gradient Boosting classifier described in
-    Section 3.3.5 of the paper.
+    Train the paper's Histogram Gradient Boosting
+    baseline.
 
-    Paper hyperparameters:
-        max_depth = 7
-        learning_rate = 0.05
-        max_iter = 700
-        min_samples_leaf = 30
-        random_state = 42
+    This baseline DOES NOT use:
 
-    Training representation:
+        • Isolation Forest
+        • Deviation score
+        • ECDF
+        • Normality Fusion
 
-        D_tilde = {
-            (x_tilde_i, y_i, omega_i)
-        }
+    It is trained directly on the original
+    behavioural features after preprocessing,
+    ROS and SMOTE.
 
-    where omega_i is supplied through
-    sample_weight.
+    Hyperparameters follow Table 3 of the paper.
     """
 
     if len(X_train) != len(y_train):
         raise ValueError(
-            "X_train and y_train have "
-            "different lengths."
+            "X_train and y_train have different lengths."
         )
 
     if len(X_train) != len(sample_weights):
         raise ValueError(
-            "X_train and sample_weights have "
-            "different lengths."
+            "Sample weights have different length."
         )
 
     if not np.all(
         np.isfinite(sample_weights)
     ):
         raise ValueError(
-            "Sample weights contain NaN "
-            "or infinity."
+            "Sample weights contain NaN."
         )
 
     if np.any(sample_weights <= 0):
         raise ValueError(
-            "All sample weights must be positive."
+            "Sample weights must be positive."
         )
 
     model = HistGradientBoostingClassifier(
@@ -90,7 +80,7 @@ def train_hist_gradient_boosting(
     return model
 
 
-def save_hist_gradient_boosting(
+def save_hgb_baseline(
     model: HistGradientBoostingClassifier,
 ) -> None:
 
@@ -105,7 +95,7 @@ def save_hist_gradient_boosting(
     )
 
 
-def load_hist_gradient_boosting(
+def load_hgb_baseline(
 ) -> HistGradientBoostingClassifier:
 
     return joblib.load(

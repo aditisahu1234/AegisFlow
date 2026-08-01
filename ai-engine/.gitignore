@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Trained models
+artifacts/models/
+artifacts/preprocessing/
+
+# macOS
+.DS_Store

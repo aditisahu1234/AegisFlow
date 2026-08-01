@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 from src.preprocessing.loader import (
     load_dataset,
@@ -58,9 +59,60 @@ from src.models.hist_gradient_boosting import (
     save_hist_gradient_boosting,
 )
 
+from src.models.hgb_baseline import (
+    train_hgb_baseline,
+    save_hgb_baseline,
+)
+
 from src.evaluation.evaluator import (
     evaluate_classifier,
 )
+
+from src.training.resampling import (
+    apply_ros_smote,
+)
+
+from src.models.logistic_regression import (
+    train_logistic_regression,
+    save_logistic_regression,
+)
+
+from src.evaluation.confusion_matrix import (
+    save_confusion_matrix,
+)
+
+from src.visualization.roc_curve import (
+    save_multiclass_roc_curve,
+)
+
+from src.visualization.feature_importance import (
+    save_feature_importance,
+)
+
+from src.evaluation.error_analysis import (
+    save_error_analysis,
+)
+
+from src.visualization.model_comparison import (
+    save_all_metric_plots,
+)
+
+from src.evaluation.ablation import (
+    run_ablation_experiment,
+)
+
+from src.evaluation.metrics_export import (
+    save_metrics,
+)
+
+from src.utils.timer import Timer
+
+import json
+
+from src.evaluation.model_metadata import (
+    save_model_metadata,
+)
+pipeline_timer = Timer()
 # ==========================================
 # 1. LOAD DATASET
 # ==========================================
@@ -219,6 +271,8 @@ print(
 # 11. ISOLATION FOREST
 # ==========================================
 
+iforest_timer = Timer()
+
 isolation_forest = fit_isolation_forest(
     X_normal,
 )
@@ -231,6 +285,12 @@ print(
     "Isolation Forest trained."
 )
 
+iforest_time = iforest_timer.elapsed()
+
+print(
+    f"\nIsolation Forest Training Time: "
+    f"{iforest_time:.2f} seconds"
+)
 # ==========================================
 # 12. DEVIATION SCORES
 # ==========================================
@@ -415,6 +475,14 @@ print(
     ].head()
 )
 
+# ==========================================
+# BASELINE FEATURE MATRICES
+# ==========================================
+
+X_train_baseline = X_train.copy()
+
+X_test_baseline = X_test.copy()
+
 print(
     "\nTraining class distribution"
 )
@@ -431,13 +499,77 @@ print(
     y_train.value_counts(normalize=True)
 )
 
+
+# ==========================================
+# 16. TRAINING RESAMPLING (FUSION)
+# ==========================================
+
+(
+    X_train_fused_balanced,
+    y_train_balanced,
+    fusion_resampling_stats,
+) = apply_ros_smote(
+    X_train_fused,
+    y_train,
+)
+
+# ==========================================
+# 17. TRAINING RESAMPLING (BASELINE)
+# ==========================================
+
+(
+    X_train_baseline_balanced,
+    _,
+    baseline_resampling_stats,
+) = apply_ros_smote(
+    X_train_baseline,
+    y_train,
+)
+
+print(
+    "\n===== TRAINING RESAMPLING ====="
+)
+
+print(
+    "\nBefore resampling:"
+)
+print(fusion_resampling_stats["before"])
+
+print(
+    "\nAfter attack ROS:"
+)
+print(
+    fusion_resampling_stats["after_ros"]
+)
+
+print(
+    "\nAfter bot + normal SMOTE:"
+)
+print(
+    fusion_resampling_stats["after_smote"]
+)
+
+print(
+    "\nTraining shape before:",
+    X_train_fused.shape,
+)
+
+print(
+    "Training shape after:",
+    X_train_fused_balanced.shape,
+)
+
+print(
+    "\nTest shape remains:",
+    X_test_fused.shape,
+)
 # ==========================================
 # 16. CLASS-PRIOR WEIGHTING
 # ==========================================
 
 class_weights, sample_weights = (
     compute_class_prior_weights(
-        y_train
+        y_train_balanced
     )
 )
 
@@ -468,15 +600,23 @@ print(
 # ==========================================
 # 17. WEIGHTED HISTOGRAM GRADIENT BOOSTING
 # ==========================================
+fusion_timer = Timer()
 
 hgb_model = train_hist_gradient_boosting(
-    X_train=X_train_fused,
-    y_train=y_train,
+    X_train=X_train_fused_balanced,
+    y_train=y_train_balanced,
     sample_weights=sample_weights,
 )
 
 save_hist_gradient_boosting(
     hgb_model
+)
+
+fusion_time = fusion_timer.elapsed()
+
+print(
+    f"Fusion HGB Training Time: "
+    f"{fusion_time:.2f} seconds"
 )
 
 print(
@@ -574,4 +714,409 @@ print(
 
 print(
     evaluation["classification_report"]
+)
+
+save_metrics(
+    evaluation,
+    "fusion_metrics.json",
+)
+
+print(
+    "\nFusion metrics saved."
+)
+# ==========================================
+# 20. HGB BASELINE (PAPER BASELINE)
+# ==========================================
+baseline_timer = Timer()
+baseline_model = train_hgb_baseline(
+    X_train=X_train_baseline_balanced,
+    y_train=y_train_balanced,
+    sample_weights=sample_weights,
+)
+
+save_hgb_baseline(
+    baseline_model
+)
+
+baseline_time = baseline_timer.elapsed()
+
+print(
+    f"HGB Baseline Training Time: "
+    f"{baseline_time:.2f} seconds"
+)
+
+print(
+    "\nPlain HGB baseline trained."
+)
+
+print(
+    "Iterations:",
+    baseline_model.n_iter_
+)
+
+baseline_evaluation = evaluate_classifier(
+    model=baseline_model,
+    X_test=X_test_baseline,
+    y_test=y_test,
+)
+
+print(
+    "\n===== HGB BASELINE ====="
+)
+
+print(
+    f"Accuracy: "
+    f"{baseline_evaluation['accuracy']:.6f}"
+)
+
+print(
+    f"Macro F1: "
+    f"{baseline_evaluation['f1_macro']:.6f}"
+)
+
+print(
+    f"Weighted F1: "
+    f"{baseline_evaluation['f1_weighted']:.6f}"
+)
+
+print(
+    f"ROC-AUC: "
+    f"{baseline_evaluation['roc_auc_macro_ovr']:.6f}"
+)
+
+save_metrics(
+    baseline_evaluation,
+    "hgb_metrics.json",
+)
+
+print(
+    "HGB metrics saved."
+)
+# ==========================================
+# 21. LOGISTIC REGRESSION BASELINE
+# ==========================================
+logistic_timer = Timer()
+
+logistic_model = train_logistic_regression(
+    X_train=X_train_baseline_balanced,
+    y_train=y_train_balanced,
+    sample_weights=sample_weights,
+)
+
+save_logistic_regression(
+    logistic_model,
+)
+logistic_time = logistic_timer.elapsed()
+
+print(
+    f"Logistic Training Time: "
+    f"{logistic_time:.2f} seconds"
+)
+print(
+    "\nLogistic Regression baseline trained."
+)
+
+# ==========================================
+# 22. LOGISTIC REGRESSION EVALUATION
+# ==========================================
+
+logistic_results = evaluate_classifier(
+    model=logistic_model,
+    X_test=X_test_baseline,
+    y_test=y_test,
+)
+
+print(
+    "\n===== LOGISTIC REGRESSION ====="
+)
+
+print(
+    f"Accuracy: "
+    f"{logistic_results['accuracy']:.6f}"
+)
+
+print(
+    f"Macro F1: "
+    f"{logistic_results['f1_macro']:.6f}"
+)
+
+print(
+    f"Weighted F1: "
+    f"{logistic_results['f1_weighted']:.6f}"
+)
+
+print(
+    f"ROC-AUC: "
+    f"{logistic_results['roc_auc_macro_ovr']:.6f}"
+)
+
+save_metrics(
+    logistic_results,
+    "logistic_metrics.json",
+)
+
+print(
+    "Logistic metrics saved."
+)
+
+# ==========================================
+# 23. MODEL COMPARISON
+# ==========================================
+
+comparison_df = pd.DataFrame(
+    [
+        {
+            "Model": "Logistic Regression",
+            "Accuracy": logistic_results["accuracy"],
+            "Macro F1": logistic_results["f1_macro"],
+            "Weighted F1": logistic_results["f1_weighted"],
+            "ROC-AUC": logistic_results["roc_auc_macro_ovr"],
+        },
+        {
+            "Model": "HGB Baseline",
+            "Accuracy": baseline_evaluation["accuracy"],
+            "Macro F1": baseline_evaluation["f1_macro"],
+            "Weighted F1": baseline_evaluation["f1_weighted"],
+            "ROC-AUC": baseline_evaluation["roc_auc_macro_ovr"],
+        },
+        {
+            "Model": "Normality Fusion",
+            "Accuracy": evaluation["accuracy"],
+            "Macro F1": evaluation["f1_macro"],
+            "Weighted F1": evaluation["f1_weighted"],
+            "ROC-AUC": evaluation["roc_auc_macro_ovr"],
+        },
+    ]
+)
+
+print(
+    "\n===== MODEL COMPARISON ====="
+)
+
+print(
+    comparison_df.round(6)
+)
+
+RESULTS_DIR = Path(
+    "artifacts/results"
+)
+
+RESULTS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+comparison_df.to_csv(
+    RESULTS_DIR / "model_comparison.csv",
+    index=False,
+)
+
+print(
+    "\nComparison table saved."
+)
+
+save_all_metric_plots(
+    comparison_df
+)
+
+print(
+    "Model comparison plots saved."
+)
+# ==========================================
+# 24. CONFUSION MATRICES
+# ==========================================
+
+save_confusion_matrix(
+    model=logistic_model,
+    X_test=X_test_baseline,
+    y_test=y_test,
+    filename="logistic_confusion.png",
+    title="Logistic Regression",
+)
+
+save_confusion_matrix(
+    model=baseline_model,
+    X_test=X_test_baseline,
+    y_test=y_test,
+    filename="hgb_confusion.png",
+    title="Histogram Gradient Boosting",
+)
+
+save_confusion_matrix(
+    model=hgb_model,
+    X_test=X_test_fused,
+    y_test=y_test,
+    filename="fusion_confusion.png",
+    title="Normality Fusion",
+)
+
+print(
+    "\nConfusion matrices saved."
+)
+
+save_multiclass_roc_curve(
+    logistic_model,
+    X_test,
+    y_test,
+    filename="roc_logistic.png",
+    title="Logistic Regression ROC",
+)
+
+save_multiclass_roc_curve(
+    baseline_model,
+    X_test,
+    y_test,
+    filename="roc_hgb.png",
+    title="Histogram Gradient Boosting ROC",
+)
+
+save_multiclass_roc_curve(
+    hgb_model,
+    X_test_fused,
+    y_test,
+    filename="roc_fusion.png",
+    title="Normality Fusion ROC",
+)
+
+print(
+    "\nROC curves saved."
+)
+
+importance = save_feature_importance(
+    model=hgb_model,
+    X_test=X_test_fused,
+    y_test=y_test,
+)
+
+print(
+    "\nTop Feature Importances:"
+)
+
+print(
+    importance
+)
+
+errors = save_error_analysis(
+    model=hgb_model,
+    X_test=X_test_fused,
+    y_test=y_test,
+)
+
+print(
+    "\n===== ERROR ANALYSIS ====="
+)
+
+print(
+    errors.head(20)
+)
+
+print(
+    "\nError analysis saved."
+)
+
+ablation_hgb = run_ablation_experiment(
+    experiment_name="Original Features",
+    X_train=X_train_baseline_balanced,
+    X_test=X_test,
+    y_train=y_train_balanced,
+    y_test=y_test,
+    sample_weights=sample_weights,
+)
+
+X_train_deviation = X_train_fused[
+    X_train.columns.tolist()
+    + ["normality_deviation"]
+].copy()
+
+X_test_deviation = X_test_fused[
+    X_test.columns.tolist()
+    + ["normality_deviation"]
+].copy()
+
+(
+    X_train_deviation,
+    y_train_deviation,
+    _,
+) = apply_ros_smote(
+    X_train_deviation,
+    y_train,
+)
+
+_, deviation_weights = compute_class_prior_weights(
+    y_train_deviation
+)
+
+ablation_deviation = run_ablation_experiment(
+    experiment_name="Deviation Only",
+    X_train=X_train_deviation,
+    X_test=X_test_deviation,
+    y_train=y_train_deviation,
+    y_test=y_test,
+    sample_weights=deviation_weights,
+)
+
+ablation_fusion = {
+    "Model": "Deviation + Percentile",
+    "Accuracy": evaluation["accuracy"],
+    "Macro F1": evaluation["f1_macro"],
+    "Weighted F1": evaluation["f1_weighted"],
+    "ROC-AUC": evaluation["roc_auc_macro_ovr"],
+}
+
+ablation_df = pd.DataFrame(
+    [
+        ablation_hgb,
+        ablation_deviation,
+        ablation_fusion,
+    ]
+)
+
+ablation_df.to_csv(
+    "artifacts/results/ablation.csv",
+    index=False,
+)
+
+print("\n===== ABLATION STUDY =====")
+print(ablation_df)
+
+save_model_metadata()
+
+print(
+    "\nModel metadata saved."
+)
+
+pipeline_time = pipeline_timer.elapsed()
+
+training_times = {
+
+    "isolation_forest_seconds":
+        iforest_time,
+
+    "fusion_hgb_seconds":
+        fusion_time,
+
+    "baseline_hgb_seconds":
+        baseline_time,
+
+    "logistic_seconds":
+        logistic_time,
+
+    "entire_pipeline_seconds":
+        pipeline_time,
+}
+
+with open(
+    "artifacts/results/training_times.json",
+    "w",
+) as f:
+
+    json.dump(
+        training_times,
+        f,
+        indent=4,
+    )
+
+print(
+    f"\nEntire Pipeline: "
+    f"{pipeline_time:.2f} seconds"
 )

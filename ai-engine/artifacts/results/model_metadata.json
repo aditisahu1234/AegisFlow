@@ -1,0 +1,18 @@
+{
+    "dataset": "API Security Access Behaviour",
+    "samples": 34423,
+    "train_test_split": "70:30",
+    "isolation_forest": {
+        "estimators": 800,
+        "contamination": 0.01,
+        "random_state": 42
+    },
+    "hist_gradient_boosting": {
+        "max_depth": 7,
+        "learning_rate": 0.05,
+        "iterations": 700,
+        "min_samples_leaf": 30
+    },
+    "python": "3.11.3",
+    "scikit_learn": "1.9.0"
+}

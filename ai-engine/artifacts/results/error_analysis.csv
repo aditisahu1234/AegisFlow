@@ -1,0 +1,11 @@
+True Class,Predicted Class,Count
+outlier,outlier,7196
+normal,normal,2683
+bot,bot,357
+outlier,bot,45
+bot,outlier,34
+attack,attack,3
+attack,outlier,3
+outlier,attack,3
+bot,normal,2
+normal,bot,1

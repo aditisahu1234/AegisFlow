@@ -5,7 +5,7 @@ from src.config import TARGET_COLUMN
 
 def split_dataset(
     df,
-    test_size=0.2,
+    test_size=0.3,
     random_state=42,
 ):
 
